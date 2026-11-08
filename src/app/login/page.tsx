@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseNavegador } from "@/lib/supabase/client";
 import { emailDoUsuario } from "@/lib/formato";
@@ -13,6 +13,14 @@ export default function Login() {
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(false);
 
+  // o servidor manda de volta para cá quando o login existe mas não tem perfil no sistema
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("inativo")) {
+      setErro("Sua senha está certa, mas esse usuário não tem cadastro no sistema (tabela perfis) ou está desativado. Fale com o administrador.");
+      supabaseNavegador().auth.signOut();
+    }
+  }, []);
+
   async function entrar(e: React.FormEvent) {
     e.preventDefault();
     setErro("");
@@ -20,7 +28,14 @@ export default function Login() {
     const { error } = await supabaseNavegador().auth.signInWithPassword({ email: emailDoUsuario(usuario), password: senha });
     if (error) {
       setCarregando(false);
-      setErro(error.message.includes("Invalid") ? "Usuário ou senha incorretos." : "Não foi possível entrar. Verifique a internet.");
+      const m = error.message.toLowerCase();
+      setErro(
+        m.includes("invalid login") ? "Usuário ou senha incorretos."
+        : m.includes("not confirmed") ? "Esse usuário ainda não foi confirmado no Supabase (marque “Auto Confirm User” ao criar)."
+        : m.includes("api key") || m.includes("apikey") ? "O site está com a chave do Supabase errada. Confira as variáveis no Vercel."
+        : m.includes("fetch") || m.includes("network") ? "Não foi possível falar com o servidor. Verifique a internet ou o endereço do Supabase no Vercel."
+        : `Não foi possível entrar: ${error.message}`,
+      );
       return;
     }
     router.replace("/");
