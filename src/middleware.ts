@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLICAS = ["/login", "/sw.js", "/manifest.webmanifest", "/offline"];
+const PUBLICAS = ["/login", "/sb/", "/sw.js", "/manifest.webmanifest", "/offline"];
 
 export async function middleware(req: NextRequest) {
   let res = NextResponse.next({ request: req });
@@ -9,6 +9,7 @@ export async function middleware(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: { name: "sb-distribuidora-auth" },
       cookies: {
         getAll: () => req.cookies.getAll(),
         setAll: (lista) => {
@@ -33,5 +34,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icons/|.*\\.(?:png|svg|jpg|ico)$).*)"],
+  matcher: ["/((?!sb/|_next/static|_next/image|favicon.ico|icons/|.*\\.(?:png|svg|jpg|ico)$).*)"],
 };

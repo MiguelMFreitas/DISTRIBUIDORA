@@ -8,6 +8,7 @@ export async function supabaseServidor() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: { name: "sb-distribuidora-auth" },
       cookies: {
         getAll: () => store.getAll(),
         setAll: (lista) => {
