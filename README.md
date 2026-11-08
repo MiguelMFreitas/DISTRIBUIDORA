@@ -19,9 +19,8 @@ Pedidos pelo celular dos vendedores (funciona sem internet), cargas, **romaneio 
 
 ### 1. Banco de dados (Supabase, grátis)
 1. Crie uma conta em https://supabase.com e um projeto novo (região **São Paulo**).
-2. Abra **SQL Editor**, cole e rode, nesta ordem, os arquivos de `supabase/migrations/`:
-   - `20261108000001_schema.sql`
-   - `20261108000002_seguranca_e_funcoes.sql`
+2. Abra **SQL Editor**, cole todo o conteúdo de `supabase/instalar.sql` e clique em **Run**.
+   (É a junção dos arquivos de `supabase/migrations/`. Mudanças futuras vêm como arquivos novos nessa pasta.)
 3. Em **Project Settings → API**, copie a *Project URL*, a chave `anon` e a chave `service_role`.
 
 ### 2. Configurar e criar o primeiro administrador
