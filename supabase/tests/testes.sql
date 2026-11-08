@@ -140,4 +140,27 @@ select ajustar_estoque('30000000-0000-0000-0000-000000000003', 12, 'contagem');
 select pg_temp.ok((select estoque from produtos where id='30000000-0000-0000-0000-000000000003') = 12, 'entrada e ajuste de estoque');
 select pg_temp.ok((select count(*) from estoque_movimentos where produto_id='30000000-0000-0000-0000-000000000003') = 5, 'histórico registra cada movimento');
 
+
+-- ---------- 14. escritório lança pedido no nome do vendedor ----------
+reset role;
+insert into auth.users (id) values ('00000000-0000-0000-0000-00000000000d');
+insert into perfis (id, nome, usuario, admin, permissoes, desconto_max) values
+ ('00000000-0000-0000-0000-00000000000d', 'Escritório', 'escritorio', false, '{pedidos_ver_todos}', 0);
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000d');
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000002',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000003","quantidade":1}]', null, null,
+  '00000000-0000-0000-0000-00000000000b') ->> 'id' as pid \gset
+select pg_temp.ok((select vendedor_id from pedidos where id = :'pid') = '00000000-0000-0000-0000-00000000000b', 'escritório lança pedido no nome do João');
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select pg_temp.ok((criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000002',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000003","quantidade":1,"desconto_pct":20}]') ->> 'status') = 'liberado', 'administrador faz pedido com qualquer desconto');
+select pg_temp.como('00000000-0000-0000-0000-00000000000c');
+do $$ begin
+  perform criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000002',
+    '[{"produto_id":"30000000-0000-0000-0000-000000000003","quantidade":1}]', null, null, '00000000-0000-0000-0000-00000000000b');
+  raise exception 'FALHOU: vendedora lançou no nome de outro';
+exception when insufficient_privilege then raise notice 'OK   vendedor não lança pedido no nome de outro';
+end $$;
+
 \warn '>>> TODOS OS TESTES PASSARAM'

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseNavegador } from "@/lib/supabase/client";
 import { combina, erroMsg, fmtDataHora, fmtMoeda, fmtPeso, hojeISO } from "@/lib/formato";
@@ -62,13 +63,17 @@ export default function Pedidos() {
   }, [visiveis]);
 
   const todosMarcados = visiveis.length > 0 && visiveis.every((l) => sel.has(l.id));
+  // "todos" = os da lista filtrada, menos cancelados e recusados
+  const imprimiveis = visiveis.filter((l) => !["cancelado", "recusado"].includes(l.status));
   const naoImpressos = visiveis.filter((l) => !l.impresso_em && ["liberado", "carregado"].includes(l.status));
 
   return (
     <Exige perm="pedidos_ver_todos">
       <Cabecalho titulo="Pedidos" sub={`${totais.qtd} pedidos · ${fmtMoeda(totais.valor)} · ${fmtPeso(totais.peso)}`}>
-        {naoImpressos.length > 0 && <Botao variante="secundario" onClick={() => abrirImpressaoPedidos(naoImpressos.map((l) => l.id))}>Imprimir não impressos ({naoImpressos.length})</Botao>}
-        <Botao disabled={!sel.size} onClick={() => abrirImpressaoPedidos([...sel])}>Imprimir selecionados ({sel.size})</Botao>
+        <Link href="/pedidos/novo"><Botao>+ Novo pedido</Botao></Link>
+        <Botao variante="secundario" disabled={!imprimiveis.length} onClick={() => abrirImpressaoPedidos(imprimiveis.map((l) => l.id))}>🖨 Imprimir todos ({imprimiveis.length})</Botao>
+        {naoImpressos.length > 0 && naoImpressos.length < imprimiveis.length && <Botao variante="secundario" onClick={() => abrirImpressaoPedidos(naoImpressos.map((l) => l.id))}>Só os não impressos ({naoImpressos.length})</Botao>}
+        <Botao variante="secundario" disabled={!sel.size} onClick={() => abrirImpressaoPedidos([...sel])}>Selecionados ({sel.size})</Botao>
       </Cabecalho>
 
       <div className="cartao mb-3 grid gap-2 p-3 sm:grid-cols-3 lg:grid-cols-6">

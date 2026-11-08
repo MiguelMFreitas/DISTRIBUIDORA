@@ -191,7 +191,7 @@ export default function MontarCarga() {
           <section>
             <h2 className="titulo mb-2 text-lg">Pedidos esperando carga</h2>
             <div className="mb-2 flex gap-2">
-              <select className="campo w-auto" value={filtroRota} onChange={(e) => setFiltroRota(e.target.value)}>
+              <select className="campo w-auto!" value={filtroRota} onChange={(e) => setFiltroRota(e.target.value)}>
                 <option value="">Todas as rotas</option>
                 {rotas.map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
                 <option value="-">Sem rota</option>

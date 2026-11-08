@@ -136,7 +136,7 @@ export default function Estoque() {
           {linhas.map((l, i) => (
             <div key={l.p.id} className="flex items-center gap-2">
               <span className="flex-1 font-medium">{l.p.nome} <span className="text-sm text-zinc-500">({l.p.unidade}, hoje {fmtQtd(l.p.estoque)})</span></span>
-              <input className="campo w-28 text-right" inputMode="decimal" placeholder="Qtd" autoFocus={i === linhas.length - 1} value={l.qtd}
+              <input className="campo w-28! text-right" inputMode="decimal" placeholder="Qtd" autoFocus={i === linhas.length - 1} value={l.qtd}
                 onChange={(e) => setLinhas((x) => x.map((y) => (y.p.id === l.p.id ? { ...y, qtd: e.target.value } : y)))} />
               <Botao variante="fantasma" tamanho="p" onClick={() => setLinhas((x) => x.filter((y) => y.p.id !== l.p.id))}>✕</Botao>
             </div>

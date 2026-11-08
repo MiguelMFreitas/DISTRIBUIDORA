@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { supabaseNavegador } from "@/lib/supabase/client";
 import { erroMsg, fmtDataHora, fmtMoeda, fmtPeso, fmtQtd } from "@/lib/formato";
 
@@ -26,34 +26,49 @@ function Conteudo() {
     try { setUmPorFolha(localStorage.getItem("imprimir_um_por_folha") === "1"); } catch {}
   }, []);
 
+  const [ordem, setOrdem] = useState<"numero" | "rota">("numero");
+  useEffect(() => {
+    try { const o = localStorage.getItem("imprimir_ordem"); if (o === "rota" || o === "numero") setOrdem(o); } catch {}
+  }, []);
+
   useEffect(() => {
     (async () => {
-      let q = sb.from("pedidos").select(SELECT);
       const carga = params.get("carga");
-      if (carga) q = q.eq("carga_id", carga).in("status", ["liberado", "carregado", "entregue"]);
-      else {
+      let lista: Ped[] = [];
+      if (carga) {
+        const { data, error } = await sb.from("pedidos").select(SELECT).eq("carga_id", carga).in("status", ["liberado", "carregado", "entregue"]);
+        if (error) return setErro(erroMsg(error));
+        lista = (data ?? []) as unknown as Ped[];
+        setOrdem("rota");
+      } else {
         let ids = (params.get("ids") ?? "").split(",").filter(Boolean);
         if (params.get("sel")) { try { ids = JSON.parse(localStorage.getItem("imprimir_pedidos") ?? "[]"); } catch {} }
         if (!ids.length) return setPedidos([]);
-        q = q.in("id", ids);
+        // busca em lotes de 80 para não estourar o tamanho do endereço
+        for (let i = 0; i < ids.length; i += 80) {
+          const { data, error } = await sb.from("pedidos").select(SELECT).in("id", ids.slice(i, i + 80));
+          if (error) return setErro(erroMsg(error));
+          lista.push(...((data ?? []) as unknown as Ped[]));
+        }
       }
-      const { data, error } = await q;
-      if (error) return setErro(erroMsg(error));
-      const lista = (data ?? []) as unknown as Ped[];
-      // pela carga: agrupa por rota e bairro (ordem de entrega); senão, pelo número
-      lista.sort((a, b) => carga
-        ? `${a.clientes.rotas?.nome ?? "~"}|${a.clientes.bairro ?? ""}|${a.clientes.razao_social}`.localeCompare(`${b.clientes.rotas?.nome ?? "~"}|${b.clientes.bairro ?? ""}|${b.clientes.razao_social}`)
-        : a.numero - b.numero);
       // itens na ordem das categorias, igual ao caminhão
       lista.forEach((p) => p.pedido_itens.sort((x, y) => (x.produtos.categorias?.ordem ?? 9999) - (y.produtos.categorias?.ordem ?? 9999) || x.produtos.nome.localeCompare(y.produtos.nome)));
       setPedidos(lista);
-      document.title = carga ? `Pedidos da carga` : `Pedidos`;
-      if (lista.length) await sb.rpc("marcar_pedidos_impressos", { p_pedidos: lista.map((p) => p.id) });
+      document.title = carga ? "Pedidos da carga" : `Pedidos (${lista.length})`;
+      for (let i = 0; i < lista.length; i += 80) {
+        await sb.rpc("marcar_pedidos_impressos", { p_pedidos: lista.slice(i, i + 80).map((p) => p.id) });
+      }
     })();
   }, [sb, params]);
 
+  const ordenados = useMemo(() => {
+    if (!pedidos) return null;
+    const chave = (p: Ped) => `${p.clientes.rotas?.nome ?? "~"}|${p.clientes.bairro ?? ""}|${p.clientes.razao_social}`;
+    return [...pedidos].sort((a, b) => (ordem === "rota" ? chave(a).localeCompare(chave(b)) : a.numero - b.numero));
+  }, [pedidos, ordem]);
+
   if (erro) return <p style={{ padding: 24 }}>Erro: {erro}</p>;
-  if (!pedidos) return <p style={{ padding: 24 }}>Carregando…</p>;
+  if (!pedidos || !ordenados) return <p style={{ padding: 24 }}>Carregando…</p>;
   if (!pedidos.length) return <p style={{ padding: 24 }}>Nenhum pedido para imprimir.</p>;
 
   const empresa = process.env.NEXT_PUBLIC_EMPRESA_NOME || "Distribuidora";
@@ -61,14 +76,21 @@ function Conteudo() {
   return (
     <>
       <div className="barra">
-        <span>{pedidos.length} pedido(s)</span>
+        <span>{pedidos.length} pedido(s) · {fmtMoeda(pedidos.reduce((s, p) => s + Number(p.total), 0))}</span>
+        <label className="sec">
+          Ordem:{" "}
+          <select value={ordem} onChange={(e) => { const o = e.target.value as "numero" | "rota"; setOrdem(o); try { localStorage.setItem("imprimir_ordem", o); } catch {} }} style={{ color: "#111", borderRadius: 6, border: 0, padding: "2px 4px" }}>
+            <option value="numero">Nº do pedido</option>
+            <option value="rota">Rota e bairro</option>
+          </select>
+        </label>
         <label className="sec">
           <input type="checkbox" checked={umPorFolha} onChange={(e) => { setUmPorFolha(e.target.checked); try { localStorage.setItem("imprimir_um_por_folha", e.target.checked ? "1" : "0"); } catch {} }} /> Um pedido por folha
         </label>
         <button onClick={() => window.print()}>🖨 Imprimir / Salvar PDF</button>
       </div>
       <div className={`folha ${umPorFolha ? "um-por-folha" : ""}`}>
-        {pedidos.map((p) => {
+        {ordenados.map((p) => {
           const c = p.clientes;
           return (
             <div key={p.id} className="ped">

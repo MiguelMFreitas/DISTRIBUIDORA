@@ -47,7 +47,7 @@ export default function Cargas() {
   return (
     <Exige perm="cargas">
       <Cabecalho titulo="Cargas" sub={semCarga > 0 ? `${semCarga} pedido(s) liberado(s) esperando carga` : "Todos os pedidos liberados já estão em cargas"}>
-        <input type="date" className="campo w-auto" value={data} onChange={(e) => setData(e.target.value)} />
+        <input type="date" className="campo w-auto!" value={data} onChange={(e) => setData(e.target.value)} />
         <Botao onClick={() => setNova({ turno: new Date().getHours() < 12 ? "manha" : "tarde", veiculo_id: "", motorista_id: "" })}>+ Nova carga</Botao>
       </Cabecalho>
 

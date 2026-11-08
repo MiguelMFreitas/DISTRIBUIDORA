@@ -12,6 +12,7 @@ type Item = { href: string; nome: string; icone: string; perm?: Permissao | Perm
 
 const MENU: Item[] = [
   { href: "/painel", nome: "Início", icone: "🏠" },
+  { href: "/pedidos/novo", nome: "Novo pedido", icone: "➕", perm: ["pedidos_criar", "pedidos_ver_todos"] },
   { href: "/pedidos", nome: "Pedidos", icone: "🧾", perm: "pedidos_ver_todos" },
   { href: "/cargas", nome: "Cargas e romaneio", icone: "🚚", perm: "cargas" },
   { href: "/conferencia", nome: "Conferência", icone: "✅", perm: "conferencia" },
@@ -48,7 +49,8 @@ export function PainelShell({ perfil, children }: { perfil: Perfil; children: Re
   const nav = (
     <nav className="flex flex-col gap-0.5">
       {itens.map((i) => {
-        const ativo = caminho === i.href || caminho.startsWith(i.href + "/");
+        // o item mais específico ganha (/pedidos/novo não acende "Pedidos")
+        const ativo = (caminho === i.href || caminho.startsWith(i.href + "/")) && !itens.some((o) => o.href !== i.href && o.href.startsWith(i.href + "/") && caminho.startsWith(o.href));
         return (
           <Link
             key={i.href}
