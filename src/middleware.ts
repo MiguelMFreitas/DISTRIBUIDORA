@@ -1,12 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { urlSupabase } from "@/lib/supabase/url";
 
 const PUBLICAS = ["/login", "/sb/", "/sw.js", "/manifest.webmanifest", "/offline"];
 
 export async function middleware(req: NextRequest) {
   let res = NextResponse.next({ request: req });
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    urlSupabase(),
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookieOptions: { name: "sb-distribuidora-auth" },

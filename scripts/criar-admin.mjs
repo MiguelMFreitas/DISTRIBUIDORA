@@ -8,7 +8,7 @@ if (!usuario || !senha || !nome) {
   console.error('Uso: node --env-file=.env.local scripts/criar-admin.mjs <usuario> <senha> "<Nome>"');
   process.exit(1);
 }
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL, chave = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const url = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim().replace(/\/+$/, "").replace(/\/(rest|auth)\/v1$/, ""), chave = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !chave) { console.error("Faltam NEXT_PUBLIC_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY no .env.local"); process.exit(1); }
 
 const sb = createClient(url, chave, { auth: { persistSession: false } });
