@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sistema da Distribuidora
 
-## Getting Started
+Pedidos pelo celular dos vendedores (funciona sem internet), cargas, **romaneio de carga** na ordem de carregamento, estoque e conferência de retorno.
 
-First, run the development server:
+## O que tem
 
+| Tela | Para quê |
+|---|---|
+| **App do vendedor** (`/vender`) | Pedido pelo celular: pesquisa cliente e produto, meia caixa / meio fardo, desconto até o limite do vendedor. Sem internet, o pedido fica guardado no celular e é enviado sozinho quando a conexão volta. |
+| **Pedidos** | Todos os pedidos, filtros, aprovação de desconto, cancelamento e impressão. |
+| **Cargas e romaneio** | Escolhe veículo e motorista, adiciona pedidos (por rota inteira ou um a um), vê o peso em relação à capacidade e imprime o romaneio e os pedidos. |
+| **Categorias (ordem)** | A ordem em que os produtos sobem no caminhão. O romaneio sai nessa ordem. |
+| **Conferência** | Retorno do caminhão: vasilhames esperados × devolvidos, produtos que voltaram cheios (voltam para o estoque) e trocas por avaria. Tem o botão de WhatsApp. |
+| **Estoque** | Entrada de mercadoria (vários produtos de uma vez), ajuste e histórico. Avisa quando o estoque está baixo e bloqueia a venda quando zera. |
+| **Ranking** | Ranking semanal dos vendedores: clientes atendidos, itens vendidos e valor. Só os administradores veem. |
+| **Usuários** | Só administradores. Ao criar uma conta, você escolhe as permissões e o desconto máximo. |
+
+## Como colocar no ar (uma vez)
+
+### 1. Banco de dados (Supabase, grátis)
+1. Crie uma conta em https://supabase.com e um projeto novo (região **São Paulo**).
+2. Abra **SQL Editor**, cole e rode, nesta ordem, os arquivos de `supabase/migrations/`:
+   - `20261108000001_schema.sql`
+   - `20261108000002_seguranca_e_funcoes.sql`
+3. Em **Project Settings → API**, copie a *Project URL*, a chave `anon` e a chave `service_role`.
+
+### 2. Configurar e criar o primeiro administrador
+```bash
+cp .env.example .env.local   # e preencha com os dados do passo 1
+npm install
+node --env-file=.env.local scripts/criar-admin.mjs miguel SUA_SENHA "Miguel"
+```
+Faça o mesmo para a conta do seu pai. As outras contas vocês criam pela tela **Usuários**.
+
+### 3. Publicar o site (Vercel, grátis)
+1. Entre em https://vercel.com com a sua conta do GitHub e importe este repositório.
+2. Em **Environment Variables**, coloque as 4 variáveis do `.env.example`.
+3. Clique em **Deploy**. O endereço gerado (ex.: `distribuidora.vercel.app`) é o que vocês e os vendedores vão usar.
+
+### 4. No celular dos vendedores
+Abra o endereço no Chrome (Android) ou no Safari (iPhone), entre com o usuário e toque em **Adicionar à tela inicial**. Abra o app uma vez com internet. Depois disso ele abre mesmo sem sinal.
+
+## Para rodar no computador (desenvolvimento)
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Testes do banco
+`supabase/tests/testes.sql` testa as regras: estoque, meia caixa, desconto, pedido repetido no envio offline, permissões, carga, romaneio, conferência e ranking.
+```bash
+bash supabase/tests/rodar.sh   # precisa de um Postgres local na porta 5433
+```

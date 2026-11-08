@@ -1,0 +1,12 @@
+{
+  "name": "Pedidos - Distribuidora",
+  "short_name": "Pedidos",
+  "start_url": "/vender",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f4f5",
+  "theme_color": "#d98a0b",
+  "icons": [
+    { "src": "/icons/icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
