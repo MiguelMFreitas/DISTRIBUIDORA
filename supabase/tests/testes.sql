@@ -163,4 +163,40 @@ do $$ begin
 exception when insufficient_privilege then raise notice 'OK   vendedor não lança pedido no nome de outro';
 end $$;
 
+
+-- ---------- 15. financeiro ----------
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  perform _mover_estoque('30000000-0000-0000-0000-000000000001', 999, 'ajuste');
+  raise exception 'FALHOU: vendedor chamou função interna de estoque';
+exception when insufficient_privilege then raise notice 'OK   vendedor não chama a função interna de estoque';
+end $$;
+do $$ begin
+  perform relatorio_financeiro(current_date - 6, current_date);
+  raise exception 'FALHOU: vendedor viu o financeiro';
+exception when insufficient_privilege then raise notice 'OK   vendedor não vê o financeiro';
+end $$;
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+-- entrada: 10 fardos de arroz a R$ 100, com R$ 50 de desconto -> custo 95
+select entrada_estoque('30000000-0000-0000-0000-000000000003', 10, 'NF 555 - Fornecedor X', 100, 50);
+select pg_temp.ok((select custo from produtos where id='30000000-0000-0000-0000-000000000003') = 95, 'entrada com desconto: custo de 1 un = R$ 95');
+select pg_temp.ok((select valor_total from estoque_movimentos where observacao = 'NF 555 - Fornecedor X') = 950, 'entrada registra o valor total R$ 950');
+-- venda guarda o custo
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000003","quantidade":2,"desconto_pct":10}]') ->> 'id' as pfin \gset
+select pg_temp.ok((select custo_unit from pedido_itens where pedido_id = :'pfin') = 95, 'venda guarda o custo do item');
+select pg_temp.ok((select valor_total from estoque_movimentos where pedido_id = :'pfin' and tipo = 'venda') = 270, 'saída por venda registra R$ 270 (2 × 135)');
+-- saída manual por avaria, pelo custo
+select saida_estoque('30000000-0000-0000-0000-000000000003', 1, 'Avaria', 'Saco rasgado');
+select pg_temp.ok((select valor_total from estoque_movimentos where motivo = 'Avaria') = 95, 'saída manual registra o valor pelo custo');
+-- relatório
+select relatorio_financeiro(current_date - 6, current_date) as rel \gset
+select pg_temp.ok((:'rel'::jsonb #>> '{resumo,descontos}')::numeric > 0, 'relatório soma os descontos dados');
+select pg_temp.ok((:'rel'::jsonb #>> '{resumo,compras}')::numeric >= 950, 'relatório soma as compras');
+select pg_temp.ok((:'rel'::jsonb #>> '{resumo,saidas_manuais}')::numeric = 95, 'relatório soma as saídas manuais');
+select pg_temp.ok(jsonb_array_length(:'rel'::jsonb -> 'por_dia') = 7, 'relatório tem os 7 dias da semana');
+select pg_temp.ok((select (x->>'lucro')::numeric from jsonb_array_elements(:'rel'::jsonb -> 'produtos') x where x->>'produto' = 'Arroz 5kg')
+  = (select sum(i.total - i.custo_unit * i.quantidade) from pedido_itens i join pedidos p on p.id = i.pedido_id
+     where i.produto_id = '30000000-0000-0000-0000-000000000003' and p.status in ('liberado','carregado','entregue')), 'lucro por produto = venda − custo');
+
 \warn '>>> TODOS OS TESTES PASSARAM'

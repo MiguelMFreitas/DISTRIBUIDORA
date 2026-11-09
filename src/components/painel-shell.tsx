@@ -21,6 +21,7 @@ const MENU: Item[] = [
   { href: "/categorias", nome: "Categorias (ordem)", icone: "↕️", perm: "produtos" },
   { href: "/estoque", nome: "Estoque", icone: "🏬", perm: "estoque" },
   { href: "/cadastros", nome: "Rotas, motoristas…", icone: "🗂️", perm: ["cadastros", "produtos"] },
+  { href: "/financeiro", nome: "Financeiro", icone: "💰", perm: "financeiro" },
   { href: "/ranking", nome: "Ranking", icone: "🏆", admin: true },
   { href: "/usuarios", nome: "Usuários", icone: "👥", admin: true },
   { href: "/vender", nome: "App do vendedor", icone: "📱", perm: "pedidos_criar" },
@@ -78,7 +79,7 @@ export function PainelShell({ perfil, children }: { perfil: Perfil; children: Re
 
   return (
     <ProvedorPerfil perfil={perfil}>
-      <div className="min-h-full lg:pl-64">
+      <div className="min-h-full lg:pl-64 print:pl-0">
         {/* menu lateral (computador) */}
         <aside className="nao-imprimir fixed inset-y-0 left-0 hidden w-64 flex-col gap-4 bg-zinc-900 p-3 lg:flex">
           <div className="px-3 pt-2 font-display text-xl font-bold uppercase leading-tight tracking-wide text-white">
@@ -102,7 +103,7 @@ export function PainelShell({ perfil, children }: { perfil: Perfil; children: Re
           </div>
         )}
 
-        <main className="mx-auto max-w-7xl p-4 sm:p-6">{children}</main>
+        <main className="mx-auto max-w-7xl p-4 sm:p-6 print:max-w-none print:p-0">{children}</main>
       </div>
       <Avisos />
     </ProvedorPerfil>

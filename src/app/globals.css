@@ -37,4 +37,6 @@ input[type="number"] { -moz-appearance: textfield; }
 
 @media print {
   .nao-imprimir { display: none !important; }
+  body { background: #fff !important; color: #111 !important; }
+  .cartao { break-inside: avoid; }
 }

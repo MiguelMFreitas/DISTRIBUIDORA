@@ -14,7 +14,8 @@ const CAMPOS: Campo[] = [
     opcoes: [{ valor: "CX", nome: "Caixa" }, { valor: "FD", nome: "Fardo" }, { valor: "LT", nome: "Litro" }, { valor: "UN", nome: "Unidade" }],
   },
   { nome: "permite_meia", rotulo: "Vende meia caixa / meio fardo", tipo: "bool", largura: 6 },
-  { nome: "preco", rotulo: "Preço (R$)", tipo: "moeda", obrigatorio: true, largura: 2 },
+  { nome: "preco", rotulo: "Preço de venda (R$)", tipo: "moeda", obrigatorio: true, largura: 2 },
+  { nome: "custo", rotulo: "Custo (R$)", tipo: "moeda", largura: 2, ajuda: "Atualiza sozinho a cada entrada" },
   { nome: "peso_kg", rotulo: "Peso (kg) por unidade", tipo: "numero", largura: 2, ajuda: "Peso de 1 caixa/fardo/litro" },
   { nome: "estoque_minimo", rotulo: "Estoque mínimo", tipo: "numero", largura: 2, ajuda: "Avisa quando ficar abaixo" },
   { nome: "vasilhame_id", rotulo: "Vasilhame que deve voltar", ref: { tabela: "vasilhames", rotulo: "nome" }, largura: 3, ajuda: "Só para retornáveis" },
@@ -28,6 +29,7 @@ const COLUNAS: Coluna[] = [
   { rotulo: "Categoria", valor: (l, r) => r.categoria_id?.[l.categoria_id] ?? <span className="text-red-600">sem categoria</span> },
   { rotulo: "Un.", valor: (l) => l.unidade + (l.permite_meia ? " ½" : "") },
   { rotulo: "Preço", valor: (l) => fmtMoeda(l.preco), classe: "text-right whitespace-nowrap" },
+  { rotulo: "Custo", valor: (l) => (Number(l.custo) > 0 ? fmtMoeda(l.custo) : <span className="text-amber-600">sem custo</span>), classe: "text-right whitespace-nowrap" },
   { rotulo: "Peso", valor: (l) => fmtPeso(l.peso_kg), classe: "text-right whitespace-nowrap" },
   {
     rotulo: "Estoque", classe: "text-right",

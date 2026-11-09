@@ -6,7 +6,8 @@ export type Permissao =
   | "estoque"
   | "cargas"
   | "conferencia"
-  | "cadastros";
+  | "cadastros"
+  | "financeiro";
 
 export const PERMISSOES: { chave: Permissao; nome: string; descricao: string }[] = [
   { chave: "pedidos_criar", nome: "Fazer pedidos", descricao: "Usa o app do vendedor no celular" },
@@ -17,6 +18,7 @@ export const PERMISSOES: { chave: Permissao; nome: string; descricao: string }[]
   { chave: "cargas", nome: "Cargas e romaneio", descricao: "Montar cargas e imprimir o romaneio" },
   { chave: "conferencia", nome: "Conferência", descricao: "Conferir o retorno do caminhão" },
   { chave: "cadastros", nome: "Rotas, motoristas e veículos", descricao: "Cadastros de apoio" },
+  { chave: "financeiro", nome: "Financeiro", descricao: "Relatório semanal: compras, vendas, descontos e lucro" },
 ];
 
 export type Perfil = {
@@ -40,6 +42,7 @@ export type Produto = {
   unidade: Unidade;
   permite_meia: boolean;
   preco: number;
+  custo: number;
   peso_kg: number;
   estoque: number;
   estoque_minimo: number;
