@@ -283,4 +283,16 @@ do $$ begin
 exception when insufficient_privilege then raise notice 'OK   vendedor não muda o roteiro';
 end $$;
 
+
+-- ---------- 21. alerta de clientes sem pedido ----------
+-- a rota MONTESE está com a Ana (teste 20); o admin lança pedido para o Cliente A
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000011',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1}]') ->> 'id' as palerta \gset
+select pg_temp.como('00000000-0000-0000-0000-00000000000c');
+select pg_temp.ok((select array_agg(x) from clientes_do_roteiro_com_pedido(current_date) x) = array['40000000-0000-0000-0000-000000000011']::uuid[],
+  'Ana vê que o Cliente A tem pedido (lançado pelo escritório)');
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+select pg_temp.ok((select count(*) from clientes_do_roteiro_com_pedido(current_date)) = 0, 'João não recebe clientes de rota que não é dele');
+
 \warn '>>> TODOS OS TESTES PASSARAM'

@@ -55,6 +55,9 @@ export default function Vender() {
   const [enviados, setEnviados] = useState<PedidoEnviado[]>([]);
   const [hojeServidor, setHojeServidor] = useState<{ numero: number; status: StatusPedido; total: number; feito_em: string; cliente_id: string; clientes: { razao_social: string } }[] | null>(null);
   const [roteiroAberto, setRoteiroAberto] = useState(true);
+  // clientes do roteiro que têm pedido (de qualquer um), vindos do servidor
+  const [comPedidoServidor, setComPedidoServidor] = useState<{ hoje: string[]; anterior: { dia: string; ids: string[] } | null }>({ hoje: [], anterior: null });
+  const [alertaOntemVisto, setAlertaOntemVisto] = useState<string | null>(null);
   const [tela, setTela] = useState<Tela>("inicio");
   const [r, setR] = useState<Rascunho>(vazio);
   const [busca, setBusca] = useState("");
@@ -73,6 +76,19 @@ export default function Vender() {
     const { data } = await sb.from("pedidos").select("numero, status, total, feito_em, cliente_id, clientes(razao_social)")
       .eq("vendedor_id", uid).gte("feito_em", new Date(hojeISO() + "T00:00:00").toISOString()).order("numero", { ascending: false });
     if (data) setHojeServidor(data as unknown as typeof hojeServidor);
+    // dia anterior de trabalho (pula o domingo)
+    const ant = new Date(hojeISO() + "T12:00:00"); ant.setDate(ant.getDate() - 1); if (ant.getDay() === 0) ant.setDate(ant.getDate() - 1);
+    const diaAnt = ant.toISOString().slice(0, 10);
+    const [h, a] = await Promise.all([
+      sb.rpc("clientes_do_roteiro_com_pedido", { p_dia: hojeISO() }),
+      sb.rpc("clientes_do_roteiro_com_pedido", { p_dia: diaAnt }),
+    ]);
+    const ids = (d: unknown) => ((d ?? []) as unknown[]).map((x) => (typeof x === "string" ? x : Object.values(x as object)[0] as string));
+    if (!h.error && !a.error) {
+      const novo = { hoje: ids(h.data), anterior: { dia: diaAnt, ids: ids(a.data) } };
+      setComPedidoServidor(novo);
+      try { localStorage.setItem("vender_alerta", JSON.stringify({ ...novo, em: hojeISO() })); } catch {}
+    }
   }, [sb]);
 
   const enviarFila = useCallback(async () => {
@@ -91,6 +107,11 @@ export default function Vender() {
       setCat(await lerCatalogo());
       await recarregarListas();
       try { const s = localStorage.getItem(CHAVE_RASCUNHO); if (s) setR(JSON.parse(s)); } catch {}
+      try {
+        const al = JSON.parse(localStorage.getItem("vender_alerta") ?? "null");
+        if (al?.em === hojeISO()) setComPedidoServidor({ hoje: al.hoje ?? [], anterior: al.anterior ?? null });
+        setAlertaOntemVisto(localStorage.getItem("vender_alerta_ontem_visto"));
+      } catch {}
       const { data: { session } } = await sb.auth.getSession();
       const uid = session?.user.id ?? (await lerCatalogo()).perfil?.id ?? null;
       if (!uid) { if (navigator.onLine) router.replace("/login"); return; }
@@ -173,14 +194,25 @@ export default function Vender() {
     (hojeServidor ?? []).filter((p) => !["cancelado", "recusado"].includes(p.status)).forEach((p) => s.add(p.cliente_id));
     fila.forEach((p) => s.add(p.cliente_id));
     enviados.filter((e) => e.feito_em.slice(0, 10) === hojeISO() && e.cliente_id).forEach((e) => s.add(e.cliente_id!));
+    comPedidoServidor.hoje.forEach((id) => s.add(id));
     return s;
-  }, [hojeServidor, fila, enviados]);
+  }, [hojeServidor, fila, enviados, comPedidoServidor]);
 
   // roteiro de visitas das rotas em que este vendedor é o responsável
   const roteiros = useMemo(() => (cat?.rotas ?? []).map((rt) => ({
     rota: rt,
     clientes: (cat?.clientes ?? []).filter((c) => c.rota_id === rt.id && c.ordem_visita != null).sort((a, b) => a.ordem_visita! - b.ordem_visita!),
   })).filter((x) => x.clientes.length), [cat]);
+
+  const faltamHoje = useMemo(() => roteiros.flatMap((x) => x.clientes).filter((c) => !comPedidoHoje.has(c.id)), [roteiros, comPedidoHoje]);
+  const naoCompraramAntes = useMemo(() => {
+    const ant = comPedidoServidor.anterior;
+    if (!ant) return [];
+    const set = new Set(ant.ids);
+    return roteiros.flatMap((x) => x.clientes).filter((c) => !set.has(c.id));
+  }, [roteiros, comPedidoServidor]);
+  const tarde = new Date().getHours() >= 14;
+  const nomes = (l: Cliente[]) => l.slice(0, 6).map((c) => c.nome_fantasia || c.razao_social).join(", ") + (l.length > 6 ? ` e mais ${l.length - 6}` : "");
 
   function pedidoPara(c: Cliente) {
     setR({ ...vazio(), cliente: c });
@@ -303,6 +335,29 @@ export default function Vender() {
             <button onClick={novoPedido} className="flex h-16 w-full items-center justify-center gap-2 rounded-2xl bg-marca-500 text-xl font-bold text-white shadow-lg active:bg-marca-600">
               + Novo pedido
             </button>
+            {roteiros.length > 0 && faltamHoje.length > 0 && (
+              <button onClick={() => { setRoteiroAberto(true); document.getElementById("meu-roteiro")?.scrollIntoView({ behavior: "smooth" }); }}
+                className={`w-full rounded-2xl border-2 p-4 text-left ${tarde ? "border-red-500 bg-red-50 text-red-900 dark:bg-red-500/15 dark:text-red-100" : "border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-500/15 dark:text-amber-100"}`}>
+                <div className="text-lg font-bold">{tarde ? "🚨" : "⚠️"} Ainda {faltamHoje.length === 1 ? "falta 1 cliente" : `faltam ${faltamHoje.length} clientes`} sem pedido hoje</div>
+                <div className="mt-1 text-sm">{nomes(faltamHoje)}</div>
+                <div className="mt-2 text-sm font-bold underline">Ver no roteiro →</div>
+              </button>
+            )}
+            {roteiros.length > 0 && faltamHoje.length === 0 && (
+              <div className="rounded-2xl border-2 border-emerald-500 bg-emerald-50 p-4 text-emerald-900 dark:bg-emerald-500/15 dark:text-emerald-100">
+                <div className="text-lg font-bold">🎉 Todos os clientes do roteiro têm pedido hoje!</div>
+              </div>
+            )}
+            {naoCompraramAntes.length > 0 && comPedidoServidor.anterior && alertaOntemVisto !== comPedidoServidor.anterior.dia && (
+              <div className="rounded-2xl border-2 border-red-500 bg-red-50 p-4 text-red-900 dark:bg-red-500/15 dark:text-red-100">
+                <div className="text-lg font-bold">❌ {new Date(comPedidoServidor.anterior.dia + "T12:00:00").getDay() === 6 && new Date().getDay() === 1 ? "No sábado" : "Ontem"} você não vendeu para {naoCompraramAntes.length === 1 ? "1 cliente" : `${naoCompraramAntes.length} clientes`}</div>
+                <div className="mt-1 text-sm">{nomes(naoCompraramAntes)}</div>
+                <div className="mt-1 text-sm">Capriche na visita a eles hoje.</div>
+                <button className="mt-2 rounded-lg bg-red-600 px-3 py-1.5 text-sm font-bold text-white"
+                  onClick={() => { const d = comPedidoServidor.anterior!.dia; setAlertaOntemVisto(d); try { localStorage.setItem("vender_alerta_ontem_visto", d); } catch {} }}>Entendi</button>
+              </div>
+            )}
+
             {(r.cliente || r.itens.length > 0) && (
               <button onClick={() => setTela(r.cliente ? "itens" : "cliente")} className="cartao flex w-full items-center justify-between p-4 text-left">
                 <span><span className="block text-xs font-semibold uppercase text-marca-600">Pedido em andamento</span><span className="font-semibold">{r.cliente?.razao_social ?? "sem cliente"} · {r.itens.length} itens</span></span>
@@ -341,7 +396,7 @@ export default function Vender() {
               const feitos = lista.filter((c) => comPedidoHoje.has(c.id)).length;
               const proximo = lista.find((c) => !comPedidoHoje.has(c.id));
               return (
-                <section key={rota.id}>
+                <section key={rota.id} id="meu-roteiro" className="scroll-mt-20">
                   <button className="mb-2 flex w-full items-baseline justify-between text-left" onClick={() => setRoteiroAberto((x) => !x)} aria-expanded={roteiroAberto}>
                     <h2 className="titulo text-lg">🗺️ Meu roteiro · {rota.nome}</h2>
                     <span className="text-sm font-semibold text-zinc-500">{feitos} de {lista.length} {roteiroAberto ? "▲" : "▼"}</span>
