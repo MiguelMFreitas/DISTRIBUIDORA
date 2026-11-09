@@ -234,4 +234,21 @@ insert into cargas (data, turno) values (current_date + 10, 'manha'), (current_d
 select pg_temp.ok((select array_agg(numero_dia order by numero) from cargas where data = current_date + 10) = '{1,2}', 'cargas do mesmo dia: 1 e 2');
 select pg_temp.ok((select numero_dia from cargas where data = current_date + 11) = 1, 'dia seguinte começa na carga 1');
 
+
+-- ---------- 19. impressão automática ----------
+reset role;
+update pedidos set impresso_em = null where status = 'liberado';
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select count(*) as livres from pedidos where status = 'liberado' \gset
+select pg_temp.ok((select count(*) from pegar_pedidos_para_imprimir(now() - interval '1 day')) = :livres, 'pega todos os liberados sem imprimir');
+select pg_temp.ok((select count(*) from pegar_pedidos_para_imprimir(now() - interval '1 day')) = 0, 'na segunda vez não pega de novo (não imprime duas vezes)');
+select pg_temp.ok(pedidos_sem_imprimir(now() - interval '1 day') = 0, 'nenhum esperando depois de pegar');
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  perform pegar_pedidos_para_imprimir(now());
+  raise exception 'FALHOU: vendedor pegou pedidos para imprimir';
+exception when insufficient_privilege then raise notice 'OK   vendedor não usa a impressão automática';
+end $$;
+
 \warn '>>> TODOS OS TESTES PASSARAM'

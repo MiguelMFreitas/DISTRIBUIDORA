@@ -71,6 +71,7 @@ export default function Pedidos() {
     <Exige perm="pedidos_ver_todos">
       <Cabecalho titulo="Pedidos" sub={`${totais.qtd} pedidos · ${fmtMoeda(totais.valor)} · ${fmtPeso(totais.peso)}`}>
         <Link href="/pedidos/novo"><Botao>+ Novo pedido</Botao></Link>
+        <a href="/imprimir/automatica" target="_blank" rel="noopener"><Botao variante="secundario">🖨 Impressão automática</Botao></a>
         <Botao variante="secundario" disabled={!imprimiveis.length} onClick={() => abrirImpressaoPedidos(imprimiveis.map((l) => l.id))}>🖨 Imprimir todos{vendedor ? ` de ${vendedor.split(" ")[0]}` : ""} ({imprimiveis.length})</Botao>
         {naoImpressos.length > 0 && naoImpressos.length < imprimiveis.length && <Botao variante="secundario" onClick={() => abrirImpressaoPedidos(naoImpressos.map((l) => l.id))}>Só os não impressos ({naoImpressos.length})</Botao>}
         <Botao variante="secundario" disabled={!sel.size} onClick={() => abrirImpressaoPedidos([...sel])}>Selecionados ({sel.size})</Botao>

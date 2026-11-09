@@ -14,6 +14,7 @@ const MENU: Item[] = [
   { href: "/painel", nome: "Início", icone: "🏠" },
   { href: "/pedidos/novo", nome: "Novo pedido", icone: "➕", perm: ["pedidos_criar", "pedidos_ver_todos"] },
   { href: "/pedidos", nome: "Pedidos", icone: "📋", perm: "pedidos_ver_todos" },
+  { href: "/imprimir/automatica", nome: "Impressão automática", icone: "🖨️", perm: ["pedidos_ver_todos", "cargas"] },
   { href: "/cargas", nome: "Cargas e romaneio", icone: "🚚", perm: "cargas" },
   { href: "/conferencia", nome: "Conferência", icone: "✅", perm: "conferencia" },
   { href: "/clientes", nome: "Clientes", icone: "🏪", perm: "clientes" },

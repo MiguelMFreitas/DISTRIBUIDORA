@@ -4,17 +4,8 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { supabaseNavegador } from "@/lib/supabase/client";
 import { IMPRESSORA_CUPOM, IMPRESSORA_FOLHA } from "@/lib/impressao";
+import { Cupom, SELECT_PEDIDO_IMPRESSAO, type Ped } from "@/components/cupom-pedido";
 import { erroMsg, fmtDataHora, fmtMoeda, fmtPeso, fmtQtd } from "@/lib/formato";
-
-type Ped = {
-  id: string; numero: number; total: number; peso_kg: number; observacao: string | null; feito_em: string; status: string;
-  clientes: { razao_social: string; nome_fantasia: string | null; cpf_cnpj: string | null; endereco: string | null; numero: string | null; bairro: string | null; cidade: string | null; referencia: string | null; telefone: string | null; rotas: { nome: string } | null };
-  perfis: { nome: string } | null;
-  cargas: { numero: number; nome: string | null; motoristas: { nome: string } | null } | null;
-  pedido_itens: { id: string; quantidade: number; preco_unit: number; desconto_pct: number; total: number; produtos: { nome: string; codigo: string | null; unidade: string; categorias: { ordem: number } | null } }[];
-};
-
-const SELECT = "id, numero, total, peso_kg, observacao, feito_em, status, clientes(razao_social, nome_fantasia, cpf_cnpj, endereco, numero, bairro, cidade, referencia, telefone, rotas(nome)), perfis!pedidos_vendedor_id_fkey(nome), cargas(numero:numero_dia, nome, motoristas(nome)), pedido_itens(id, quantidade, preco_unit, desconto_pct, total, produtos(nome, codigo, unidade, categorias(ordem)))";
 
 function Conteudo() {
   const params = useSearchParams();
@@ -43,7 +34,7 @@ function Conteudo() {
       const carga = params.get("carga");
       let lista: Ped[] = [];
       if (carga) {
-        const { data, error } = await sb.from("pedidos").select(SELECT).eq("carga_id", carga).in("status", ["liberado", "carregado", "entregue"]);
+        const { data, error } = await sb.from("pedidos").select(SELECT_PEDIDO_IMPRESSAO).eq("carga_id", carga).in("status", ["liberado", "carregado", "entregue"]);
         if (error) return setErro(erroMsg(error));
         lista = (data ?? []) as unknown as Ped[];
         setOrdem("rota");
@@ -53,7 +44,7 @@ function Conteudo() {
         if (!ids.length) return setPedidos([]);
         // busca em lotes de 80 para não estourar o tamanho do endereço
         for (let i = 0; i < ids.length; i += 80) {
-          const { data, error } = await sb.from("pedidos").select(SELECT).in("id", ids.slice(i, i + 80));
+          const { data, error } = await sb.from("pedidos").select(SELECT_PEDIDO_IMPRESSAO).in("id", ids.slice(i, i + 80));
           if (error) return setErro(erroMsg(error));
           lista.push(...((data ?? []) as unknown as Ped[]));
         }
@@ -159,43 +150,6 @@ function Conteudo() {
       </div>
       )}
     </>
-  );
-}
-
-/** Pedido no formato de cupom (impressora térmica): só preto, letras grandes, uma coluna */
-function Cupom({ p, empresa }: { p: Ped; empresa: string }) {
-  const c = p.clientes;
-  const itens = p.pedido_itens.reduce((s, i) => s + Number(i.quantidade), 0);
-  return (
-    <div className="cupom">
-      <div className="c-emp">{empresa}</div>
-      <div className="c-num">PEDIDO {p.numero}</div>
-      <div className="c-meta">{fmtDataHora(p.feito_em)} · Vend.: {p.perfis?.nome ?? "—"}</div>
-      {p.cargas && <div className="c-meta"><b>Carga {p.cargas.numero}{p.cargas.nome ? ` · ${p.cargas.nome}` : ""}</b>{p.cargas.motoristas ? ` · ${p.cargas.motoristas.nome}` : ""}</div>}
-      <div className="c-sep" />
-      <div className="c-cli">{c.razao_social}</div>
-      {c.nome_fantasia && <div>{c.nome_fantasia}</div>}
-      <div>{[c.endereco && `${c.endereco}${c.numero ? ", " + c.numero : ""}`, c.bairro, c.cidade].filter(Boolean).join(" - ")}</div>
-      {c.referencia && <div>Ref.: {c.referencia}</div>}
-      <div>{c.telefone ? `Tel.: ${c.telefone}` : ""}{c.rotas ? `${c.telefone ? " · " : ""}Rota: ${c.rotas.nome}` : ""}</div>
-      <div className="c-sep" />
-      {p.pedido_itens.map((i) => (
-        <div key={i.id} className="c-it">
-          <span className="c-q">{fmtQtd(i.quantidade)} {i.produtos.unidade}</span>
-          <span className="c-n">{i.produtos.nome}</span>
-          <span className="c-v">
-            <span>{fmtMoeda(i.preco_unit)}{i.desconto_pct > 0 ? ` (-${Number(i.desconto_pct).toLocaleString("pt-BR")}%)` : ""}</span>
-            <b>{fmtMoeda(i.total)}</b>
-          </span>
-        </div>
-      ))}
-      <div className="c-sep" />
-      <div className="c-meta" style={{ textAlign: "left" }}>{p.pedido_itens.length} produtos · {fmtQtd(itens)} itens · {fmtPeso(p.peso_kg)}</div>
-      <div className="c-tot"><span>TOTAL</span><span>{fmtMoeda(p.total)}</span></div>
-      {p.observacao && <><div className="c-sep" /><div><b>OBS.:</b> {p.observacao}</div></>}
-      <div className="c-ass">Recebi as mercadorias · Assinatura</div>
-      <div className="c-ass" style={{ marginTop: "7mm" }}>Valor recebido R$</div>
-    </div>
   );
 }
 
