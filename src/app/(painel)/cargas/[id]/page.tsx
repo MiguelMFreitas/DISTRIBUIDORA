@@ -76,6 +76,7 @@ export default function MontarCarga() {
     return [...g.entries()].sort((a, b) => (nomeRota[a[0]] ?? "zzz").localeCompare(nomeRota[b[0]] ?? "zzz"));
   }, [disponiveis, nomeRota]);
 
+  const rotasNaCarga = [...new Set(naCarga.map((p) => nomeRota[p.clientes.rota_id ?? ""] ?? "SEM ROTA"))].sort();
   const peso = naCarga.reduce((s, p) => s + Number(p.peso_kg), 0);
   const valor = naCarga.reduce((s, p) => s + Number(p.total), 0);
   const clientes = new Set(naCarga.map((p) => p.clientes.razao_social)).size;
@@ -128,7 +129,7 @@ export default function MontarCarga() {
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link href="/cargas" className="text-sm font-semibold text-marca-600">← Cargas</Link>
-          <h1 className="titulo text-3xl">Carga {carga.numero}</h1>
+          <h1 className="titulo text-3xl">Carga {carga.numero}{carga.nome ? ` · ${carga.nome}` : ""}</h1>
           <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-500">
             {fmtData(carga.data)} · {TURNOS[carga.turno]} <Selo cor={STATUS_CARGA[carga.status][1]}>{STATUS_CARGA[carga.status][0]}</Selo>
           </div>
@@ -144,6 +145,18 @@ export default function MontarCarga() {
 
       {/* veículo, motorista e resumo */}
       <div className="cartao mb-4 grid gap-3 p-4 md:grid-cols-[1fr_1fr_2fr]">
+        <div className="md:col-span-3">
+          <label className="rotulo" htmlFor="nome-carga">Nome da carga (sai grande no romaneio)</label>
+          <div className="flex flex-wrap gap-2">
+            <input id="nome-carga" className="campo max-w-xl flex-1 uppercase" disabled={!montando} placeholder="Ex.: ROTA SERRA, CENTRO + ZONA NORTE"
+              key={carga.nome ?? ""} defaultValue={carga.nome ?? ""}
+              onBlur={(e) => { const v = e.target.value.trim().toLocaleUpperCase("pt-BR") || null; if (v !== (carga.nome ?? null)) atualizarCarga({ nome: v }); }}
+              onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()} />
+            {montando && rotasNaCarga.length > 0 && (
+              <Botao variante="secundario" onClick={() => atualizarCarga({ nome: rotasNaCarga.join(" + ") })}>Usar as rotas: {rotasNaCarga.join(" + ")}</Botao>
+            )}
+          </div>
+        </div>
         <div><label className="rotulo">Veículo</label>
           <select className="campo" disabled={!montando} value={carga.veiculo_id ?? ""} onChange={(e) => atualizarCarga({ veiculo_id: e.target.value || null })}>
             <option value="">—</option>

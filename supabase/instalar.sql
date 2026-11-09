@@ -848,3 +848,11 @@ end $$;
 
 revoke execute on function public.criar_pedido(uuid, uuid, jsonb, text, timestamptz, uuid) from public, anon;
 grant execute on function public.criar_pedido(uuid, uuid, jsonb, text, timestamptz, uuid) to authenticated;
+
+-- >>> 20261109000004_nome_da_carga.sql
+-- =====================================================================
+-- Nome da carga (ex.: "Rota Serra", "Centro + Zona Norte"), sai no romaneio
+-- =====================================================================
+alter table public.cargas add column if not exists nome text;
+grant insert (nome) on public.cargas to authenticated;
+grant update (nome) on public.cargas to authenticated;

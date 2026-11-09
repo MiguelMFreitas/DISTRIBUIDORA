@@ -7,7 +7,7 @@ import { erroMsg, fmtData, fmtMoeda, fmtPeso, fmtQtd, TURNOS } from "@/lib/forma
 
 type Item = { categoria_id: string | null; categoria: string; categoria_ordem: number; produto_id: string; codigo: string | null; produto: string; unidade: string; quantidade: number; peso_kg: number; valor: number };
 type Carga = {
-  numero: number; data: string; turno: "manha" | "tarde"; observacao: string | null;
+  numero: number; nome: string | null; data: string; turno: "manha" | "tarde"; observacao: string | null;
   veiculos: { nome: string; placa: string | null; capacidade_kg: number | null } | null;
   motoristas: { nome: string } | null;
   pedidos: { id: string; status: string; clientes: { id: string; rotas: { nome: string } | null } }[];
@@ -23,7 +23,7 @@ export default function Romaneio() {
   useEffect(() => {
     (async () => {
       const [{ data: c, error: e1 }, { data: i, error: e2 }] = await Promise.all([
-        sb.from("cargas").select("numero, data, turno, observacao, veiculos(nome, placa, capacidade_kg), motoristas(nome), pedidos(id, status, clientes(id, rotas(nome)))").eq("id", id).single(),
+        sb.from("cargas").select("numero, nome, data, turno, observacao, veiculos(nome, placa, capacidade_kg), motoristas(nome), pedidos(id, status, clientes(id, rotas(nome)))").eq("id", id).single(),
         sb.rpc("romaneio_itens", { p_carga: id }),
       ]);
       if (e1 || e2) return setErro(erroMsg(e1 || e2));
@@ -43,7 +43,7 @@ export default function Romaneio() {
   }, [itens]);
 
   useEffect(() => {
-    if (carga) document.title = `Romaneio carga ${carga.numero}`;
+    if (carga) document.title = `Romaneio carga ${carga.numero}${carga.nome ? " - " + carga.nome : ""}`;
   }, [carga]);
 
   if (erro) return <p style={{ padding: 24 }}>Erro: {erro}</p>;
@@ -61,6 +61,7 @@ export default function Romaneio() {
 
   return (
     <>
+      <style>{"@page { size: A4; margin: 10mm; }"}</style>
       <div className="barra">
         <span>Romaneio da carga {carga.numero}. Para PDF, escolha “Salvar como PDF” na janela de impressão.</span>
         <button onClick={() => window.print()}>🖨 Imprimir / Salvar PDF</button>
@@ -70,6 +71,7 @@ export default function Romaneio() {
           <div>
             <div className="cond" style={{ fontSize: 14, color: "#555", fontWeight: 600 }}>{process.env.NEXT_PUBLIC_EMPRESA_NOME || "Distribuidora"}</div>
             <h1 className="cond">Romaneio de carga</h1>
+            {carga.nome && <div className="cond rom-nome">{carga.nome}</div>}
           </div>
           <div style={{ textAlign: "right" }}>
             <div className="cond rom-num">Nº {carga.numero}</div>

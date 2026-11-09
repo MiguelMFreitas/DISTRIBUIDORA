@@ -100,6 +100,7 @@ export type Pedido = {
 export type Carga = {
   id: string;
   numero: number;
+  nome: string | null;
   data: string;
   turno: "manha" | "tarde";
   veiculo_id: string | null;
