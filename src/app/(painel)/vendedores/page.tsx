@@ -5,6 +5,7 @@ import { supabaseNavegador } from "@/lib/supabase/client";
 import { combina, erroMsg, fmtMoeda, fmtQtd } from "@/lib/formato";
 import { Botao, Cabecalho, Vazio, avisar } from "@/components/ui";
 import { Exige } from "@/components/perfil-contexto";
+import { abrirImpressaoPedidos } from "@/lib/impressao";
 
 type Periodo = "dia" | "semana" | "mes";
 type Vend = { vendedor_id: string; nome: string; pedidos: number; clientes: number; itens: number; caixas: number; fardos: number; litros: number; unidades: number; valor: number };
@@ -83,6 +84,17 @@ export default function Vendedores() {
     return r.sort((a, b) => b.qtd - a.qtd);
   }, [prods, vendedor, busca]);
 
+  // imprime todos os pedidos do vendedor no período escolhido
+  async function imprimirDoVendedor(v: Vend) {
+    const { data, error } = await sb.from("pedidos").select("id")
+      .eq("vendedor_id", v.vendedor_id).not("status", "in", "(cancelado,recusado)")
+      .gte("feito_em", ini.toISOString()).lt("feito_em", new Date(fim.getFullYear(), fim.getMonth(), fim.getDate() + 1).toISOString())
+      .order("numero").limit(2000);
+    if (error) return avisar(erroMsg(error), "erro");
+    if (!data?.length) return avisar(`${v.nome} não tem pedidos neste período.`, "erro");
+    abrirImpressaoPedidos(data.map((p: { id: string }) => p.id));
+  }
+
   const th = "px-3 py-2 font-semibold";
   const PERIODOS: [Periodo, string][] = [["dia", "Dia"], ["semana", "Semana"], ["mes", "Mês"]];
 
@@ -128,8 +140,11 @@ export default function Vendedores() {
                         {temUn && <td className="text-right">{fmtQtd(v.unidades)}</td>}
                         <td className="text-right">{fmtQtd(v.itens)}</td>
                         <td className="text-right font-semibold whitespace-nowrap">{fmtMoeda(v.valor)}</td>
-                        <td className="text-right">
-                          {n(v.itens) > 0 && <Botao variante="fantasma" tamanho="p" onClick={() => setVendedor(vendedor === v.vendedor_id ? "" : v.vendedor_id)}>{vendedor === v.vendedor_id ? "Ver todos" : "Ver produtos"}</Botao>}
+                        <td className="whitespace-nowrap text-right">
+                          {n(v.itens) > 0 && <>
+                            <Botao variante="fantasma" tamanho="p" onClick={() => setVendedor(vendedor === v.vendedor_id ? "" : v.vendedor_id)}>{vendedor === v.vendedor_id ? "Ver todos" : "Ver produtos"}</Botao>
+                            <Botao variante="fantasma" tamanho="p" onClick={() => imprimirDoVendedor(v)} title={`Imprimir os ${v.pedidos} pedidos de ${v.nome} neste período`}>🖨 Pedidos</Botao>
+                          </>}
                         </td>
                       </tr>
                     ))}

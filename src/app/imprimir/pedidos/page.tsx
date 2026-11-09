@@ -33,9 +33,9 @@ function Conteudo() {
     } catch {}
   }, []);
 
-  const [ordem, setOrdem] = useState<"numero" | "rota">("numero");
+  const [ordem, setOrdem] = useState<"numero" | "rota" | "vendedor">("numero");
   useEffect(() => {
-    try { const o = localStorage.getItem("imprimir_ordem"); if (o === "rota" || o === "numero") setOrdem(o); } catch {}
+    try { const o = localStorage.getItem("imprimir_ordem"); if (o === "rota" || o === "numero" || o === "vendedor") setOrdem(o); } catch {}
   }, []);
 
   useEffect(() => {
@@ -71,6 +71,7 @@ function Conteudo() {
   const ordenados = useMemo(() => {
     if (!pedidos) return null;
     const chave = (p: Ped) => `${p.clientes.rotas?.nome ?? "~"}|${p.clientes.bairro ?? ""}|${p.clientes.razao_social}`;
+    if (ordem === "vendedor") return [...pedidos].sort((a, b) => (a.perfis?.nome ?? "~").localeCompare(b.perfis?.nome ?? "~") || a.numero - b.numero);
     return [...pedidos].sort((a, b) => (ordem === "rota" ? chave(a).localeCompare(chave(b)) : a.numero - b.numero));
   }, [pedidos, ordem]);
 
@@ -86,9 +87,10 @@ function Conteudo() {
         <span>{pedidos.length} pedido(s) · {fmtMoeda(pedidos.reduce((s, p) => s + Number(p.total), 0))}</span>
         <label className="sec">
           Ordem:{" "}
-          <select value={ordem} onChange={(e) => { const o = e.target.value as "numero" | "rota"; setOrdem(o); try { localStorage.setItem("imprimir_ordem", o); } catch {} }} style={{ color: "#111", borderRadius: 6, border: 0, padding: "2px 4px" }}>
+          <select value={ordem} onChange={(e) => { const o = e.target.value as "numero" | "rota" | "vendedor"; setOrdem(o); try { localStorage.setItem("imprimir_ordem", o); } catch {} }} style={{ color: "#111", borderRadius: 6, border: 0, padding: "2px 4px" }}>
             <option value="numero">Nº do pedido</option>
             <option value="rota">Rota e bairro</option>
+            <option value="vendedor">Vendedor</option>
           </select>
         </label>
         <label className="sec">
