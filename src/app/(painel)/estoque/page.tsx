@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseNavegador } from "@/lib/supabase/client";
-import { combina, erroMsg, fmtDataHora, fmtMoeda, fmtQtd } from "@/lib/formato";
+import { alfa, combina, erroMsg, fmtDataHora, fmtMoeda, fmtQtd } from "@/lib/formato";
 import type { Produto } from "@/lib/tipos";
 import { Botao, Cabecalho, Modal, Selo, avisar } from "@/components/ui";
 import { BuscaProduto } from "@/components/busca-produto";
@@ -43,7 +43,7 @@ export default function Estoque() {
       sb.from("produtos").select("*").eq("ativo", true).order("nome"),
       sb.from("estoque_movimentos").select("id, tipo, quantidade, saldo, observacao, motivo, criado_em, valor_unit, desconto, valor_total, produtos(nome), perfis(nome)").order("criado_em", { ascending: false }).limit(60),
     ]);
-    setProdutos((p ?? []) as Produto[]);
+    setProdutos(((p ?? []) as Produto[]).sort((a, b) => alfa(a.nome, b.nome)));
     setMovs((m ?? []) as unknown as Mov[]);
   }, [sb]);
   useEffect(() => { carregar(); }, [carregar]);

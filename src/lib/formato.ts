@@ -52,3 +52,13 @@ export function erroMsg(e: unknown): string {
   const x = e as { message?: string; details?: string };
   return x.message || "Erro desconhecido";
 }
+
+/**
+ * Ordem alfabética do português: "ÁGUA" fica junto do "A", maiúscula = minúscula,
+ * e números em ordem natural ("REFRI 2L" antes de "REFRI 10L").
+ */
+const colador = new Intl.Collator("pt-BR", { sensitivity: "base", numeric: true });
+export const alfa = (a: string | null | undefined, b: string | null | undefined) => colador.compare(a ?? "", b ?? "");
+export function ordenarPor<T>(lista: T[], campo: (x: T) => string | null | undefined) {
+  return [...lista].sort((x, y) => alfa(campo(x), campo(y)));
+}

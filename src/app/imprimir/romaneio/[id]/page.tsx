@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { supabaseNavegador } from "@/lib/supabase/client";
 import { IMPRESSORA_FOLHA } from "@/lib/impressao";
-import { erroMsg, fmtData, fmtMoeda, fmtPeso, fmtQtd, TURNOS } from "@/lib/formato";
+import { alfa, erroMsg, fmtData, fmtMoeda, fmtPeso, fmtQtd, TURNOS } from "@/lib/formato";
 
 type Item = { categoria_id: string | null; categoria: string; categoria_ordem: number; produto_id: string; codigo: string | null; produto: string; unidade: string; quantidade: number; peso_kg: number; valor: number };
 type Carga = {
@@ -29,7 +29,8 @@ export default function Romaneio() {
       ]);
       if (e1 || e2) return setErro(erroMsg(e1 || e2));
       setCarga(c as unknown as Carga);
-      setItens((i ?? []) as Item[]);
+      // categorias na ordem de carregamento; dentro de cada uma, ordem alfabética
+      setItens(((i ?? []) as Item[]).sort((a, b) => a.categoria_ordem - b.categoria_ordem || alfa(a.categoria, b.categoria) || alfa(a.produto, b.produto)));
     })();
   }, [sb, id]);
 

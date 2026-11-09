@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { combina, fmtQtd } from "@/lib/formato";
+import { alfa, combina, fmtQtd } from "@/lib/formato";
 import type { Produto } from "@/lib/tipos";
 
 /** Campo de pesquisa de produto com lista suspensa */
@@ -11,7 +11,7 @@ export function BuscaProduto({ produtos, aoEscolher, placeholder = "Pesquisar pr
   const [q, setQ] = useState("");
   const [aberto, setAberto] = useState(false);
   const [i, setI] = useState(0);
-  const res = useMemo(() => (q.trim() ? produtos.filter((p) => combina(`${p.nome} ${p.codigo ?? ""}`, q)).slice(0, 12) : []), [q, produtos]);
+  const res = useMemo(() => (q.trim() ? produtos.filter((p) => combina(`${p.nome} ${p.codigo ?? ""}`, q)).sort((a, b) => alfa(a.nome, b.nome)).slice(0, 12) : []), [q, produtos]);
   function escolher(p: Produto) { aoEscolher(p); setQ(""); setI(0); }
   return (
     <div className="relative">

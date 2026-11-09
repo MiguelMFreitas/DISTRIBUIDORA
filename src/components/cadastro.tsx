@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseNavegador } from "@/lib/supabase/client";
-import { combina, erroMsg } from "@/lib/formato";
+import { alfa, combina, erroMsg } from "@/lib/formato";
 import { Botao, BotaoConfirmar, Modal, Vazio, avisar } from "./ui";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -63,7 +63,10 @@ export function Cadastro({ tabela, singular, campos, colunas, buscaEm, ordem, po
     setCarregando(true);
     const { data, error } = await sb.from(tabela).select(select).order(ordem);
     if (error) avisar(erroMsg(error), "erro");
-    setLinhas((data as unknown as Linha[]) ?? []);
+    // ordem alfabética do português (o banco põe palavras com acento no fim)
+    const lista = ((data as unknown as Linha[]) ?? []).slice();
+    if (lista.length && typeof lista[0][ordem] === "string") lista.sort((a, b) => alfa(a[ordem], b[ordem]));
+    setLinhas(lista);
     // tabelas ligadas (rota, categoria, vendedor...)
     const novasRefs: Record<string, Record<string, string>> = {};
     const novasOpcoes: Record<string, { valor: string; nome: string }[]> = {};
@@ -74,6 +77,7 @@ export function Cadastro({ tabela, singular, campos, colunas, buscaEm, ordem, po
           const r = c.ref!;
           const { data: d } = await sb.from(r.tabela).select(`id, ${r.rotulo}`).order(r.ordem ?? r.rotulo);
           const lista = ((d as unknown as Linha[]) ?? []).map((x) => ({ valor: x.id as string, nome: x[r.rotulo] as string }));
+          if (!r.ordem || r.ordem === r.rotulo) lista.sort((a, b) => alfa(a.nome, b.nome));
           novasOpcoes[c.nome] = lista;
           novasRefs[c.nome] = Object.fromEntries(lista.map((x) => [x.valor, x.nome]));
         }),

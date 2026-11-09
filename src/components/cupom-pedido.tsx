@@ -51,6 +51,6 @@ export function Cupom({ p, empresa }: { p: Ped; empresa: string }) {
 
 /** Itens na ordem das categorias, igual ao caminhão */
 export function ordenarItens(lista: Ped[]) {
-  lista.forEach((p) => p.pedido_itens.sort((x, y) => (x.produtos.categorias?.ordem ?? 9999) - (y.produtos.categorias?.ordem ?? 9999) || x.produtos.nome.localeCompare(y.produtos.nome)));
+  lista.forEach((p) => p.pedido_itens.sort((x, y) => (x.produtos.categorias?.ordem ?? 9999) - (y.produtos.categorias?.ordem ?? 9999) || x.produtos.nome.localeCompare(y.produtos.nome, "pt-BR", { sensitivity: "base", numeric: true })));
   return lista;
 }

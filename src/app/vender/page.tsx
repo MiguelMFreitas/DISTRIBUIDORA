@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseNavegador } from "@/lib/supabase/client";
-import { combina, fmtDataHora, fmtMoeda, fmtQtd, hojeISO, UNIDADES } from "@/lib/formato";
+import { alfa, combina, fmtDataHora, fmtMoeda, fmtQtd, hojeISO, UNIDADES } from "@/lib/formato";
 import type { Cliente, Produto } from "@/lib/tipos";
 import { STATUS_PEDIDO, type StatusPedido } from "@/lib/tipos";
 import {
@@ -148,12 +148,12 @@ export default function Vender() {
     let l = cat.clientes;
     if (busca.trim()) l = l.filter((c) => combina(`${c.razao_social} ${c.nome_fantasia ?? ""} ${c.codigo ?? ""} ${c.bairro ?? ""} ${c.cpf_cnpj ?? ""}`, busca));
     // clientes do vendedor primeiro
-    return [...l].sort((a, b) => Number(b.vendedor_id === userId) - Number(a.vendedor_id === userId)).slice(0, 60);
+    return [...l].sort((a, b) => Number(b.vendedor_id === userId) - Number(a.vendedor_id === userId) || alfa(a.razao_social, b.razao_social)).slice(0, 60);
   }, [cat, busca, userId]);
 
   const produtosFiltrados = useMemo(() => {
     if (!cat || !busca.trim()) return [];
-    return cat.produtos.filter((p) => combina(`${p.nome} ${p.codigo ?? ""}`, busca)).slice(0, 40);
+    return cat.produtos.filter((p) => combina(`${p.nome} ${p.codigo ?? ""}`, busca)).sort((a, b) => alfa(a.nome, b.nome)).slice(0, 40);
   }, [cat, busca]);
 
   const total = totalItens(r.itens);
@@ -452,7 +452,7 @@ export default function Vender() {
               <div className="space-y-2">
                 {[...r.itens].sort((a, b) => {
                   const pa = cat.produtos.find((p) => p.id === a.produto_id), pb = cat.produtos.find((p) => p.id === b.produto_id);
-                  return (ordemCat[pa?.categoria_id ?? ""] ?? 999) - (ordemCat[pb?.categoria_id ?? ""] ?? 999);
+                  return (ordemCat[pa?.categoria_id ?? ""] ?? 999) - (ordemCat[pb?.categoria_id ?? ""] ?? 999) || alfa(a.nome, b.nome);
                 }).map((i) => {
                   const p = cat.produtos.find((x) => x.id === i.produto_id);
                   const disp = p ? disponivel(p) : i.quantidade;

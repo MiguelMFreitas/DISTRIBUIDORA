@@ -50,7 +50,7 @@ function Conteudo() {
         }
       }
       // itens na ordem das categorias, igual ao caminhão
-      lista.forEach((p) => p.pedido_itens.sort((x, y) => (x.produtos.categorias?.ordem ?? 9999) - (y.produtos.categorias?.ordem ?? 9999) || x.produtos.nome.localeCompare(y.produtos.nome)));
+      lista.forEach((p) => p.pedido_itens.sort((x, y) => (x.produtos.categorias?.ordem ?? 9999) - (y.produtos.categorias?.ordem ?? 9999) || x.produtos.nome.localeCompare(y.produtos.nome, "pt-BR", { sensitivity: "base", numeric: true })));
       setPedidos(lista);
       document.title = carga ? "Pedidos da carga" : `Pedidos (${lista.length})`;
       for (let i = 0; i < lista.length; i += 80) {
