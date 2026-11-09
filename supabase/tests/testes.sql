@@ -212,4 +212,19 @@ exception when insufficient_privilege then raise notice 'OK   vendedor não emit
 end $$;
 select pg_temp.ok((select count(*) from recibos) = 0, 'vendedor não vê recibos');
 
+
+-- ---------- 17. desempenho dos vendedores ----------
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select desempenho_vendedores(current_date, current_date) as des \gset
+select pg_temp.ok((select (x->>'caixas')::numeric from jsonb_array_elements(:'des'::jsonb -> 'vendedores') x where x->>'nome' = 'Ana Vendedora') = 4, 'desempenho: Ana vendeu 4 caixas hoje');
+select pg_temp.ok((select (x->>'clientes')::int from jsonb_array_elements(:'des'::jsonb -> 'vendedores') x where x->>'nome' = 'João Vendedor') = 2, 'desempenho: João atendeu 2 clientes');
+select pg_temp.ok((select sum((x->>'quantidade')::numeric) from jsonb_array_elements(:'des'::jsonb -> 'produtos') x
+  where x->>'produto' = 'Cerveja 600ml retornável' and x->>'vendedor_id' = '00000000-0000-0000-0000-00000000000c') = 4, 'desempenho por produto: Ana, 4 cx de cerveja');
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  perform desempenho_vendedores(current_date, current_date);
+  raise exception 'FALHOU: vendedor viu o desempenho de todos';
+exception when insufficient_privilege then raise notice 'OK   vendedor não vê o desempenho dos outros';
+end $$;
+
 \warn '>>> TODOS OS TESTES PASSARAM'

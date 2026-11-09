@@ -23,6 +23,7 @@ const MENU: Item[] = [
   { href: "/cadastros", nome: "Rotas, motoristas…", icone: "🗂️", perm: ["cadastros", "produtos"] },
   { href: "/recibos", nome: "Recibos", icone: "🧾", perm: ["pedidos_ver_todos", "financeiro"] },
   { href: "/financeiro", nome: "Financeiro", icone: "💰", perm: "financeiro" },
+  { href: "/vendedores", nome: "Vendedores", icone: "📊", admin: true },
   { href: "/ranking", nome: "Ranking", icone: "🏆", admin: true },
   { href: "/usuarios", nome: "Usuários", icone: "👥", admin: true },
   { href: "/vender", nome: "App do vendedor", icone: "📱", perm: "pedidos_criar" },
