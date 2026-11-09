@@ -19,6 +19,7 @@ const MENU: Item[] = [
   { href: "/conferencia", nome: "Conferência", icone: "✅", perm: "conferencia" },
   { href: "/clientes", nome: "Clientes", icone: "🏪", perm: "clientes" },
   { href: "/roteiros", nome: "Roteiro de visitas", icone: "🗺️", perm: ["clientes", "cadastros"] },
+  { href: "/visitas", nome: "Visitas do dia", icone: "📍", perm: "pedidos_ver_todos" },
   { href: "/produtos", nome: "Produtos", icone: "📦", perm: "produtos" },
   { href: "/categorias", nome: "Categorias (ordem)", icone: "↕️", perm: "produtos" },
   { href: "/estoque", nome: "Estoque", icone: "🏬", perm: "estoque" },
