@@ -103,6 +103,8 @@ export type Pedido = {
 export type Carga = {
   id: string;
   numero: number;
+  /** número que aparece na tela e no romaneio: recomeça em 1 todo dia */
+  numero_dia: number;
   nome: string | null;
   data: string;
   turno: "manha" | "tarde";

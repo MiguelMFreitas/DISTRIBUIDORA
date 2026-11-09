@@ -51,7 +51,7 @@ export default function Painel() {
       setAguardando((ag ?? []) as unknown as Aguardando[]);
     }
     if (podeCargas) {
-      const { data } = await sb.from("cargas").select("id, numero, turno, status, veiculos(nome), motoristas(nome), pedidos(count)").eq("data", hojeISO()).order("turno").order("numero");
+      const { data } = await sb.from("cargas").select("id, numero:numero_dia, turno, status, veiculos(nome), motoristas(nome), pedidos(count)").eq("data", hojeISO()).order("turno").order("numero");
       setCargas((data ?? []) as unknown as CargaHoje[]);
     }
     const { data: prods } = await sb.from("produtos").select("id, nome, estoque, estoque_minimo, unidade").eq("ativo", true).order("estoque");

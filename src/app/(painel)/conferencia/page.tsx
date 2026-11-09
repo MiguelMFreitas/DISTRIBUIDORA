@@ -15,7 +15,7 @@ export default function ListaConferencia() {
   const [pendentes, setPendentes] = useState<C[] | null>(null);
   const [feitas, setFeitas] = useState<C[]>([]);
   useEffect(() => {
-    const sel = "id, numero, data, turno, status, veiculos(nome), motoristas(nome), pedidos(count)";
+    const sel = "id, numero:numero_dia, data, turno, status, veiculos(nome), motoristas(nome), pedidos(count)";
     sb.from("cargas").select(sel).eq("status", "saiu").order("data").order("numero").then(({ data }) => setPendentes((data ?? []) as unknown as C[]));
     sb.from("cargas").select(sel).eq("status", "conferida").order("data", { ascending: false }).order("numero", { ascending: false }).limit(20).then(({ data }) => setFeitas((data ?? []) as unknown as C[]));
   }, [sb]);

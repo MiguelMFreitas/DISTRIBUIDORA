@@ -34,7 +34,7 @@ export default function Pedidos() {
   const carregar = useCallback(async () => {
     setCarregando(true);
     const { data, error } = await sb.from("pedidos")
-      .select("id, numero, status, total, peso_kg, feito_em, impresso_em, carga_id, clientes(razao_social, nome_fantasia, bairro, rota_id), perfis!pedidos_vendedor_id_fkey(nome), cargas(numero)")
+      .select("id, numero, status, total, peso_kg, feito_em, impresso_em, carga_id, clientes(razao_social, nome_fantasia, bairro, rota_id), perfis!pedidos_vendedor_id_fkey(nome), cargas(numero:numero_dia)")
       .gte("feito_em", new Date(de + "T00:00:00").toISOString())
       .lt("feito_em", new Date(new Date(ate + "T00:00:00").getTime() + 86400000).toISOString())
       .order("numero", { ascending: false })

@@ -24,7 +24,7 @@ export default function Romaneio() {
   useEffect(() => {
     (async () => {
       const [{ data: c, error: e1 }, { data: i, error: e2 }] = await Promise.all([
-        sb.from("cargas").select("numero, nome, data, turno, observacao, veiculos(nome, placa, capacidade_kg), motoristas(nome), pedidos(id, status, clientes(id, rotas(nome)))").eq("id", id).single(),
+        sb.from("cargas").select("numero:numero_dia, nome, data, turno, observacao, veiculos(nome, placa, capacidade_kg), motoristas(nome), pedidos(id, status, clientes(id, rotas(nome)))").eq("id", id).single(),
         sb.rpc("romaneio_itens", { p_carga: id }),
       ]);
       if (e1 || e2) return setErro(erroMsg(e1 || e2));

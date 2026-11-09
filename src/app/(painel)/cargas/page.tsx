@@ -24,7 +24,7 @@ export default function Cargas() {
 
   const carregar = useCallback(async () => {
     const [{ data: c }, { count }] = await Promise.all([
-      sb.from("cargas").select("id, numero, nome, data, turno, status, veiculos(nome, placa), motoristas(nome), pedidos(total, peso_kg)").eq("data", data).order("turno").order("numero"),
+      sb.from("cargas").select("id, numero:numero_dia, nome, data, turno, status, veiculos(nome, placa), motoristas(nome), pedidos(total, peso_kg)").eq("data", data).order("turno").order("numero"),
       sb.from("pedidos").select("id", { count: "exact", head: true }).eq("status", "liberado").is("carga_id", null),
     ]);
     setCargas((c ?? []) as unknown as C[]);

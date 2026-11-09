@@ -14,7 +14,7 @@ type Ped = {
   pedido_itens: { id: string; quantidade: number; preco_unit: number; desconto_pct: number; total: number; produtos: { nome: string; codigo: string | null; unidade: string; categorias: { ordem: number } | null } }[];
 };
 
-const SELECT = "id, numero, total, peso_kg, observacao, feito_em, status, clientes(razao_social, nome_fantasia, cpf_cnpj, endereco, numero, bairro, cidade, referencia, telefone, rotas(nome)), perfis!pedidos_vendedor_id_fkey(nome), cargas(numero, nome, motoristas(nome)), pedido_itens(id, quantidade, preco_unit, desconto_pct, total, produtos(nome, codigo, unidade, categorias(ordem)))";
+const SELECT = "id, numero, total, peso_kg, observacao, feito_em, status, clientes(razao_social, nome_fantasia, cpf_cnpj, endereco, numero, bairro, cidade, referencia, telefone, rotas(nome)), perfis!pedidos_vendedor_id_fkey(nome), cargas(numero:numero_dia, nome, motoristas(nome)), pedido_itens(id, quantidade, preco_unit, desconto_pct, total, produtos(nome, codigo, unidade, categorias(ordem)))";
 
 function Conteudo() {
   const params = useSearchParams();

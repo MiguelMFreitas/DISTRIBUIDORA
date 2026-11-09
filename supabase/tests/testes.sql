@@ -227,4 +227,11 @@ do $$ begin
 exception when insufficient_privilege then raise notice 'OK   vendedor não vê o desempenho dos outros';
 end $$;
 
+
+-- ---------- 18. número da carga recomeça por dia ----------
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+insert into cargas (data, turno) values (current_date + 10, 'manha'), (current_date + 10, 'tarde'), (current_date + 11, 'manha');
+select pg_temp.ok((select array_agg(numero_dia order by numero) from cargas where data = current_date + 10) = '{1,2}', 'cargas do mesmo dia: 1 e 2');
+select pg_temp.ok((select numero_dia from cargas where data = current_date + 11) = 1, 'dia seguinte começa na carga 1');
+
 \warn '>>> TODOS OS TESTES PASSARAM'

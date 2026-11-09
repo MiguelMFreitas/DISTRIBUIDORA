@@ -65,7 +65,7 @@ export default function Conferir() {
   const [pronto, setPronto] = useState(false);
 
   const carregar = useCallback(async () => {
-    const { data: c } = await sb.from("cargas").select("id, numero, data, turno, status, veiculos(nome, placa), motoristas(nome)").eq("id", id).single();
+    const { data: c } = await sb.from("cargas").select("id, numero:numero_dia, data, turno, status, veiculos(nome, placa), motoristas(nome)").eq("id", id).single();
     setCarga(c as unknown as Carga);
     const [{ data: e }, { data: v }, { data: p }] = await Promise.all([
       sb.rpc("vasilhames_esperados", { p_carga: id }),
