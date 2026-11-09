@@ -99,3 +99,14 @@
 .cupom .c-tot { display: flex; justify-content: space-between; align-items: baseline; font-weight: 700; font-size: 1.5em; }
 .cupom .c-ass { margin-top: 9mm; border-top: 1px solid #000; text-align: center; font-size: .9em; padding-top: 1mm; }
 @media print { .impressao .cupons { margin: 0; padding: 0; box-shadow: none; } }
+
+/* ---------- recibo ---------- */
+.recibo p { line-height: 1.45; }
+.recibo-a4 { border: 2px solid #111; padding: 8mm 10mm; font-size: 16px; color: #111; break-inside: avoid; }
+.recibo-a4 .ra-topo { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #111; padding-bottom: 4mm; margin-bottom: 5mm; }
+.recibo-a4 .ra-tit { font-size: 34px; font-weight: 700; letter-spacing: .25em; }
+.recibo-a4 .ra-valor { font-size: 26px; font-weight: 700; border: 2px solid #111; padding: 2mm 4mm; margin-top: 2mm; display: inline-block; }
+.recibo-a4 .ra-texto { line-height: 1.8; text-align: justify; margin: 0 0 3mm; }
+.recibo-a4 .ra-rodape { display: flex; justify-content: space-between; align-items: flex-end; gap: 10mm; margin-top: 12mm; }
+.recibo-a4 .ra-ass { flex: 0 0 45%; border-top: 1.5px solid #111; text-align: center; padding-top: 2mm; font-size: 13px; }
+.ra-corte { text-align: center; color: #888; font-size: 12px; margin: 8mm 0; letter-spacing: .1em; white-space: nowrap; overflow: hidden; }

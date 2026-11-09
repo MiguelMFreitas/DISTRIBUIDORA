@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { supabaseNavegador } from "@/lib/supabase/client";
+import { IMPRESSORA_FOLHA } from "@/lib/impressao";
 import { erroMsg, fmtData, fmtMoeda, fmtPeso, fmtQtd, TURNOS } from "@/lib/formato";
 
 type Item = { categoria_id: string | null; categoria: string; categoria_ordem: number; produto_id: string; codigo: string | null; produto: string; unidade: string; quantidade: number; peso_kg: number; valor: number };
@@ -63,7 +64,7 @@ export default function Romaneio() {
     <>
       <style>{"@page { size: A4; margin: 10mm; }"}</style>
       <div className="barra">
-        <span>Romaneio da carga {carga.numero}. Para PDF, escolha “Salvar como PDF” na janela de impressão.</span>
+        <span>Romaneio da carga {carga.numero} · folha A4. Na janela de impressão, escolha a impressora <b>{IMPRESSORA_FOLHA}</b> (ou “Salvar como PDF”).</span>
         <button onClick={() => window.print()}>🖨 Imprimir / Salvar PDF</button>
       </div>
       <div className="folha">

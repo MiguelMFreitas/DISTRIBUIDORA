@@ -8,7 +8,7 @@ import { Exige } from "@/components/perfil-contexto";
 
 type Resumo = {
   pedidos: number; clientes: number; vendas_bruto: number; descontos: number; vendas_liquido: number; custo_vendido: number;
-  devolucoes: number; compras: number; descontos_compra: number; saidas_manuais: number; itens_sem_custo: number;
+  devolucoes: number; compras: number; descontos_compra: number; saidas_manuais: number; itens_sem_custo: number; recebimentos?: number;
 };
 type Rel = {
   resumo: Resumo;
@@ -17,6 +17,7 @@ type Rel = {
   produtos: { produto: string; unidade: string; quantidade: number; faturamento: number; custo: number; lucro: number; descontos: number; sem_custo: boolean }[];
   entradas: { criado_em: string; produto: string; unidade: string; quantidade: number; valor_unit: number | null; desconto: number; valor_total: number | null; observacao: string | null; usuario: string | null }[];
   saidas: { criado_em: string; produto: string; unidade: string; quantidade: number; valor_unit: number | null; valor_total: number | null; motivo: string | null; observacao: string | null; usuario: string | null }[];
+  recibos?: { numero: number; data: string; valor: number; recebemos_de: string; referente: string | null; observacao: string | null; usuario: string | null }[];
   devolucoes: { criado_em: string; produto: string; unidade: string; quantidade: number; valor_unit: number | null; valor_total: number | null; observacao: string | null; usuario: string | null }[];
 };
 
@@ -191,6 +192,21 @@ export default function Financeiro() {
                 <td className="text-right font-semibold whitespace-nowrap">{s.valor_total != null ? fmtMoeda(s.valor_total) : "—"}</td>
                 <td className="text-zinc-500">{s.observacao ?? ""}</td>
                 <td className="text-zinc-500">{s.usuario ?? ""}</td>
+              </tr>
+            ))}
+          </Tabela>
+
+          <Tabela titulo={`Recibos emitidos · ${fmtMoeda(n(r.recebimentos))}`} sub="Pagamentos recebidos na semana (tela Recibos)." vazio={!rel.recibos?.length}
+            cab={<tr><th className={th}>Nº</th><th className={th}>Data</th><th className={th}>Recebemos de</th><th className={th}>Referente a</th><th className={`${th} text-right`}>Valor</th><th className={th}>Observação</th><th className={th}>Quem</th></tr>}>
+            {(rel.recibos ?? []).map((x) => (
+              <tr key={x.numero}>
+                <td className="font-semibold">{x.numero}</td>
+                <td className="whitespace-nowrap text-zinc-500">{fmtData(x.data)}</td>
+                <td className="font-medium">{x.recebemos_de}</td>
+                <td>{x.referente ?? ""}</td>
+                <td className="text-right font-semibold whitespace-nowrap">{fmtMoeda(x.valor)}</td>
+                <td className="text-zinc-500">{x.observacao ?? ""}</td>
+                <td className="text-zinc-500">{x.usuario ?? ""}</td>
               </tr>
             ))}
           </Tabela>

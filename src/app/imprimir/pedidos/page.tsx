@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { supabaseNavegador } from "@/lib/supabase/client";
+import { IMPRESSORA_CUPOM, IMPRESSORA_FOLHA } from "@/lib/impressao";
 import { erroMsg, fmtDataHora, fmtMoeda, fmtPeso, fmtQtd } from "@/lib/formato";
 
 type Ped = {
@@ -93,16 +94,16 @@ function Conteudo() {
         <label className="sec">
           Papel:{" "}
           <select value={formato} onChange={(e) => { const f = e.target.value as typeof formato; setFormato(f); try { localStorage.setItem("imprimir_formato", f); } catch {} }} style={{ color: "#111", borderRadius: 6, border: 0, padding: "2px 4px" }}>
-            <option value="t80">Cupom 80 mm (térmica)</option>
+            <option value="t80">Cupom 80 mm ({IMPRESSORA_CUPOM})</option>
             <option value="t58">Cupom 58 mm (térmica pequena)</option>
-            <option value="a4">Folha A4</option>
+            <option value="a4">Folha A4 ({IMPRESSORA_FOLHA})</option>
           </select>
         </label>
         {formato === "a4" && <label className="sec">
           <input type="checkbox" checked={umPorFolha} onChange={(e) => { setUmPorFolha(e.target.checked); try { localStorage.setItem("imprimir_um_por_folha", e.target.checked ? "1" : "0"); } catch {} }} /> Um pedido por folha
         </label>}
         <button onClick={() => window.print()}>🖨 Imprimir / Salvar PDF</button>
-        {formato !== "a4" && <span style={{ width: "100%", textAlign: "center", fontSize: 12, opacity: .8 }}>Na janela de impressão, escolha a impressora térmica e deixe a margem em “Nenhuma”. Cada pedido sai em um cupom.</span>}
+        {formato !== "a4" && <span style={{ width: "100%", textAlign: "center", fontSize: 12, opacity: .8 }}>Na janela de impressão, escolha a impressora <b>{IMPRESSORA_CUPOM}</b> e deixe as margens em “Nenhuma”. Cada pedido sai em um cupom, com corte entre eles.</span>}
       </div>
       {/* na térmica o tamanho do papel vem do driver da impressora (bobina); aqui só tiramos a margem */}
       <style>{formato === "a4" ? "@page { size: A4; margin: 10mm; }" : "@page { margin: 0; }"}</style>

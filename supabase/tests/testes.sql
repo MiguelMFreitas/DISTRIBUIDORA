@@ -199,4 +199,17 @@ select pg_temp.ok((select (x->>'lucro')::numeric from jsonb_array_elements(:'rel
   = (select sum(i.total - i.custo_unit * i.quantidade) from pedido_itens i join pedidos p on p.id = i.pedido_id
      where i.produto_id = '30000000-0000-0000-0000-000000000003' and p.status in ('liberado','carregado','entregue')), 'lucro por produto = venda − custo');
 
+
+-- ---------- 16. recibos ----------
+insert into recibos (valor, recebemos_de, referente) values (350.50, 'BAR DO ZÉ', 'Pedido 1') returning numero as rec \gset
+select pg_temp.ok(:'rec'::int >= 1, 'admin emite recibo numerado');
+select pg_temp.ok(((relatorio_financeiro(current_date - 6, current_date)) #>> '{resumo,recebimentos}')::numeric = 350.50, 'recibo entra no relatório como recebimento');
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  insert into recibos (valor, recebemos_de) values (10, 'X');
+  raise exception 'FALHOU: vendedor emitiu recibo';
+exception when insufficient_privilege then raise notice 'OK   vendedor não emite recibo';
+end $$;
+select pg_temp.ok((select count(*) from recibos) = 0, 'vendedor não vê recibos');
+
 \warn '>>> TODOS OS TESTES PASSARAM'

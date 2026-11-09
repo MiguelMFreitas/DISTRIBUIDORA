@@ -13,7 +13,7 @@ type Item = { href: string; nome: string; icone: string; perm?: Permissao | Perm
 const MENU: Item[] = [
   { href: "/painel", nome: "Início", icone: "🏠" },
   { href: "/pedidos/novo", nome: "Novo pedido", icone: "➕", perm: ["pedidos_criar", "pedidos_ver_todos"] },
-  { href: "/pedidos", nome: "Pedidos", icone: "🧾", perm: "pedidos_ver_todos" },
+  { href: "/pedidos", nome: "Pedidos", icone: "📋", perm: "pedidos_ver_todos" },
   { href: "/cargas", nome: "Cargas e romaneio", icone: "🚚", perm: "cargas" },
   { href: "/conferencia", nome: "Conferência", icone: "✅", perm: "conferencia" },
   { href: "/clientes", nome: "Clientes", icone: "🏪", perm: "clientes" },
@@ -21,6 +21,7 @@ const MENU: Item[] = [
   { href: "/categorias", nome: "Categorias (ordem)", icone: "↕️", perm: "produtos" },
   { href: "/estoque", nome: "Estoque", icone: "🏬", perm: "estoque" },
   { href: "/cadastros", nome: "Rotas, motoristas…", icone: "🗂️", perm: ["cadastros", "produtos"] },
+  { href: "/recibos", nome: "Recibos", icone: "🧾", perm: ["pedidos_ver_todos", "financeiro"] },
   { href: "/financeiro", nome: "Financeiro", icone: "💰", perm: "financeiro" },
   { href: "/ranking", nome: "Ranking", icone: "🏆", admin: true },
   { href: "/usuarios", nome: "Usuários", icone: "👥", admin: true },
