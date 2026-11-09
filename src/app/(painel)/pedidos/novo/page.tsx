@@ -74,11 +74,13 @@ export default function NovoPedido() {
   }, [sb, eu.id]);
   useEffect(() => { carregar(); }, [carregar]);
 
-  // cliente escolhido: sugere o vendedor da carteira dele
+  // cliente escolhido: o pedido é do vendedor dono do cliente
   function escolherCliente(c: Cliente) {
     setCliente(c);
-    if (podeVer && c.vendedor_id && vendedores.some((v) => v.id === c.vendedor_id)) setVendedor(c.vendedor_id);
+    if (c.vendedor_id) setVendedor(c.vendedor_id);
+    else if (!podeVer) return avisar("Este cliente não tem vendedor. Defina o vendedor no cadastro de Clientes.", "erro");
   }
+  const donoFixo = !!cliente?.vendedor_id;
 
   function adicionar(p: Produto) {
     if (p.estoque <= 0) return avisar(`${p.nome} está sem estoque.`, "erro");
@@ -105,7 +107,7 @@ export default function NovoPedido() {
     const { data, error } = await sb.rpc("criar_pedido", {
       p_client_id: clientId, p_cliente_id: cliente.id,
       p_itens: validas.map((l) => ({ produto_id: l.p.id, quantidade: l.qtd, desconto_pct: l.desc })),
-      p_observacao: obs || null, p_feito_em: null, p_vendedor_id: vendedor === eu.id ? null : vendedor,
+      p_observacao: obs || null, p_feito_em: null, p_vendedor_id: donoFixo ? cliente!.vendedor_id : vendedor === eu.id ? null : vendedor,
     });
     setSalvando(false);
     if (error) {
@@ -156,10 +158,10 @@ export default function NovoPedido() {
             {podeVer && (
               <div className="max-w-sm">
                 <label className="rotulo" htmlFor="vend">Vendedor do pedido</label>
-                <select id="vend" className="campo" value={vendedor} onChange={(e) => setVendedor(e.target.value)}>
+                <select id="vend" className="campo" value={vendedor} onChange={(e) => setVendedor(e.target.value)} disabled={donoFixo}>
                   {vendedores.map((v) => <option key={v.id} value={v.id}>{v.id === eu.id ? `${v.nome} (eu)` : v.nome}</option>)}
                 </select>
-                <p className="mt-1 text-xs text-zinc-500">Conta para o ranking desse vendedor.</p>
+                <p className="mt-1 text-xs text-zinc-500">{donoFixo ? "É o vendedor dono deste cliente (cadastro de Clientes). O pedido conta para ele." : "Este cliente não tem vendedor: defina no cadastro de Clientes."}</p>
               </div>
             )}
           </section>

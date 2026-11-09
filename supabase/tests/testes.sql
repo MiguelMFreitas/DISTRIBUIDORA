@@ -16,7 +16,10 @@ insert into produtos (id, nome, categoria_id, unidade, permite_meia, preco, peso
  ('30000000-0000-0000-0000-000000000001', 'Cerveja 600ml retornável', '10000000-0000-0000-0000-000000000001', 'CX', true, 100, 20, 50, '20000000-0000-0000-0000-000000000001'),
  ('30000000-0000-0000-0000-000000000002', 'Refri Cola 2L', '10000000-0000-0000-0000-000000000002', 'FD', false, 40, 12.5, 10, null),
  ('30000000-0000-0000-0000-000000000003', 'Arroz 5kg', '10000000-0000-0000-0000-000000000009', 'FD', false, 150, 30, 5, null);
-insert into clientes (id, razao_social) values ('40000000-0000-0000-0000-000000000001', 'Bar do Zé'), ('40000000-0000-0000-0000-000000000002', 'Mercado Bom Preço');
+insert into clientes (id, razao_social, vendedor_id) values
+ ('40000000-0000-0000-0000-000000000001', 'Bar do Zé', '00000000-0000-0000-0000-00000000000b'),
+ ('40000000-0000-0000-0000-000000000002', 'Mercado Bom Preço', '00000000-0000-0000-0000-00000000000b'),
+ ('40000000-0000-0000-0000-000000000003', 'Adega da Ana', '00000000-0000-0000-0000-00000000000c');
 
 create function pg_temp.como(u text) returns void language sql as $$ select set_config('request.jwt.claim.sub', u, false) $$;
 create function pg_temp.ok(cond boolean, msg text) returns void language plpgsql as $$
@@ -79,7 +82,7 @@ end $$;
 -- ---------- 7. vendedora só vê os próprios pedidos ----------
 select pg_temp.como('00000000-0000-0000-0000-00000000000c');
 select pg_temp.ok((select count(*) from pedidos) = 0, 'Ana não vê pedidos do João');
-select criar_pedido('50000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000002',
+select criar_pedido('50000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000003',
   '[{"produto_id":"30000000-0000-0000-0000-000000000001","quantidade":4}]') ->> 'status' as st \gset
 select pg_temp.ok((select count(*) from pedidos) = 1, 'Ana vê o pedido dela');
 
@@ -255,10 +258,10 @@ end $$;
 -- ---------- 20. roteiro de visitas ----------
 reset role;
 insert into rotas (id, nome) values ('60000000-0000-0000-0000-000000000001', 'MONTESE');
-insert into clientes (id, razao_social, rota_id) values
- ('40000000-0000-0000-0000-000000000011', 'Cliente A', '60000000-0000-0000-0000-000000000001'),
- ('40000000-0000-0000-0000-000000000012', 'Cliente B', '60000000-0000-0000-0000-000000000001'),
- ('40000000-0000-0000-0000-000000000013', 'Cliente C', '60000000-0000-0000-0000-000000000001');
+insert into clientes (id, razao_social, rota_id, vendedor_id) values
+ ('40000000-0000-0000-0000-000000000011', 'Cliente A', '60000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000c'),
+ ('40000000-0000-0000-0000-000000000012', 'Cliente B', '60000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000c'),
+ ('40000000-0000-0000-0000-000000000013', 'Cliente C', '60000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000c');
 set role authenticated;
 select pg_temp.como('00000000-0000-0000-0000-00000000000a');
 select salvar_ordem_visitas('60000000-0000-0000-0000-000000000001',
@@ -309,6 +312,34 @@ do $$ begin
   perform ranking_clientes(current_date, current_date);
   raise exception 'FALHOU: vendedor viu ranking de clientes';
 exception when insufficient_privilege then raise notice 'OK   vendedor não vê o ranking de clientes';
+end $$;
+
+
+-- ---------- 23. carteira de clientes ----------
+select pg_temp.como('00000000-0000-0000-0000-00000000000c');
+select pg_temp.ok((select count(*) from clientes where vendedor_id <> '00000000-0000-0000-0000-00000000000c') = 0, 'Ana só enxerga os clientes dela');
+do $$ begin
+  perform criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
+    '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1}]');
+  raise exception 'FALHOU: Ana vendeu para cliente do João';
+exception when insufficient_privilege then
+  if sqlerrm not like 'Este cliente é do vendedor%' then raise; end if;
+  raise notice 'OK   vendedor não faz pedido para cliente de outro vendedor';
+end $$;
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000003',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1}]') ->> 'id' as pesc \gset
+select pg_temp.ok((select vendedor_id from pedidos where id = :'pesc') = '00000000-0000-0000-0000-00000000000c', 'escritório lança e o pedido vai para o dono do cliente (Ana)');
+do $$ begin
+  perform criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000003',
+    '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1}]', null, null, '00000000-0000-0000-0000-00000000000b');
+  raise exception 'FALHOU: escritório lançou cliente da Ana no nome do João';
+exception when insufficient_privilege then raise notice 'OK   escritório não lança cliente da Ana no nome do João';
+end $$;
+do $$ begin
+  insert into clientes (razao_social) values ('Sem dono');
+  raise exception 'FALHOU: cadastrou cliente sem vendedor';
+exception when check_violation then raise notice 'OK   não cadastra cliente sem vendedor';
 end $$;
 
 \warn '>>> TODOS OS TESTES PASSARAM'

@@ -204,10 +204,7 @@ export default function Roteiros() {
                 {vends.map((v) => <option key={v.id} value={v.id}>{v.nome}</option>)}
               </select>
             </div>
-            <label className="flex items-start gap-2 text-sm">
-              <input type="checkbox" className="mt-0.5 size-4" checked={troca.mover} onChange={(e) => setTroca({ ...troca, mover: e.target.checked })} />
-              <span>Passar também os clientes da rota para a carteira do novo vendedor (eles aparecem com ★ no celular dele e contam para ele).</span>
-            </label>
+            <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">Os clientes desta rota passam para a carteira do novo vendedor: só ele vai ver e fazer pedido para eles. Quando o outro voltar, é só trocar de novo.</p>
             <p className="text-sm text-zinc-500">A ordem de visita continua a mesma. O novo vendedor vê o roteiro no celular dele.</p>
           </div>
         )}

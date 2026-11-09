@@ -218,7 +218,7 @@ export function Cadastro({ tabela, singular, campos, colunas, buscaEm, ordem, po
                     <label className="rotulo" htmlFor={`c-${c.nome}`}>{c.rotulo}{c.obrigatorio && " *"}</label>
                     {c.tipo === "select" || c.ref ? (
                       <select id={`c-${c.nome}`} className="campo" required={c.obrigatorio} value={editando[c.nome] ?? ""} onChange={(e) => setEditando({ ...editando, [c.nome]: e.target.value || null })}>
-                        {!c.obrigatorio && <option value="">—</option>}
+                        {c.obrigatorio ? <option value="" disabled>Escolha…</option> : <option value="">—</option>}
                         {(c.opcoes ?? opcoesRef[c.nome] ?? []).map((o) => <option key={o.valor} value={o.valor}>{o.nome}</option>)}
                       </select>
                     ) : c.tipo === "area" ? (
