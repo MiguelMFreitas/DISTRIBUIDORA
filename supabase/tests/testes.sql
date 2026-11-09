@@ -295,4 +295,20 @@ select pg_temp.ok((select array_agg(x) from clientes_do_roteiro_com_pedido(curre
 select pg_temp.como('00000000-0000-0000-0000-00000000000b');
 select pg_temp.ok((select count(*) from clientes_do_roteiro_com_pedido(current_date)) = 0, 'João não recebe clientes de rota que não é dele');
 
+
+-- ---------- 22. ranking de clientes ----------
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select pg_temp.ok((select pedidos from ranking_clientes(current_date - 6, current_date) where cliente_id = '40000000-0000-0000-0000-000000000001')
+  = (select count(*) from pedidos where cliente_id = '40000000-0000-0000-0000-000000000001' and status not in ('cancelado','recusado')), 'ranking de clientes: vezes que o Bar do Zé comprou');
+select pg_temp.ok((select valor from ranking_clientes(current_date - 6, current_date) where cliente_id = '40000000-0000-0000-0000-000000000002')
+  = (select sum(total) from pedidos where cliente_id = '40000000-0000-0000-0000-000000000002' and status not in ('cancelado','recusado')), 'ranking de clientes: valor do Mercado');
+select pg_temp.ok((select itens from ranking_clientes(current_date - 6, current_date) where cliente_id = '40000000-0000-0000-0000-000000000002')
+  = (select sum(i.quantidade) from pedido_itens i join pedidos p on p.id = i.pedido_id where p.cliente_id = '40000000-0000-0000-0000-000000000002' and p.status not in ('cancelado','recusado')), 'ranking de clientes: itens do Mercado');
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  perform ranking_clientes(current_date, current_date);
+  raise exception 'FALHOU: vendedor viu ranking de clientes';
+exception when insufficient_privilege then raise notice 'OK   vendedor não vê o ranking de clientes';
+end $$;
+
 \warn '>>> TODOS OS TESTES PASSARAM'
