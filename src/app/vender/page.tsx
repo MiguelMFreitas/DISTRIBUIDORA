@@ -53,7 +53,8 @@ export default function Vender() {
   const [online, setOnline] = useState(true);
   const [fila, setFila] = useState<PedidoFila[]>([]);
   const [enviados, setEnviados] = useState<PedidoEnviado[]>([]);
-  const [hojeServidor, setHojeServidor] = useState<{ numero: number; status: StatusPedido; total: number; feito_em: string; clientes: { razao_social: string } }[] | null>(null);
+  const [hojeServidor, setHojeServidor] = useState<{ numero: number; status: StatusPedido; total: number; feito_em: string; cliente_id: string; clientes: { razao_social: string } }[] | null>(null);
+  const [roteiroAberto, setRoteiroAberto] = useState(true);
   const [tela, setTela] = useState<Tela>("inicio");
   const [r, setR] = useState<Rascunho>(vazio);
   const [busca, setBusca] = useState("");
@@ -69,7 +70,7 @@ export default function Vender() {
   }, []);
 
   const buscarHoje = useCallback(async (uid: string) => {
-    const { data } = await sb.from("pedidos").select("numero, status, total, feito_em, clientes(razao_social)")
+    const { data } = await sb.from("pedidos").select("numero, status, total, feito_em, cliente_id, clientes(razao_social)")
       .eq("vendedor_id", uid).gte("feito_em", new Date(hojeISO() + "T00:00:00").toISOString()).order("numero", { ascending: false });
     if (data) setHojeServidor(data as unknown as typeof hojeServidor);
   }, [sb]);
@@ -163,6 +164,28 @@ export default function Vender() {
     setR(vazio());
     setBusca("");
     setTela("cliente");
+    setTimeout(() => buscaRef.current?.focus(), 50);
+  }
+
+  // clientes que já têm pedido hoje (enviado, na fila ou no servidor)
+  const comPedidoHoje = useMemo(() => {
+    const s = new Set<string>();
+    (hojeServidor ?? []).filter((p) => !["cancelado", "recusado"].includes(p.status)).forEach((p) => s.add(p.cliente_id));
+    fila.forEach((p) => s.add(p.cliente_id));
+    enviados.filter((e) => e.feito_em.slice(0, 10) === hojeISO() && e.cliente_id).forEach((e) => s.add(e.cliente_id!));
+    return s;
+  }, [hojeServidor, fila, enviados]);
+
+  // roteiro de visitas das rotas em que este vendedor é o responsável
+  const roteiros = useMemo(() => (cat?.rotas ?? []).map((rt) => ({
+    rota: rt,
+    clientes: (cat?.clientes ?? []).filter((c) => c.rota_id === rt.id && c.ordem_visita != null).sort((a, b) => a.ordem_visita! - b.ordem_visita!),
+  })).filter((x) => x.clientes.length), [cat]);
+
+  function pedidoPara(c: Cliente) {
+    setR({ ...vazio(), cliente: c });
+    setBusca("");
+    setTela("itens");
     setTimeout(() => buscaRef.current?.focus(), 50);
   }
 
@@ -313,6 +336,38 @@ export default function Vender() {
                 </div>
               </section>
             )}
+
+            {roteiros.map(({ rota, clientes: lista }) => {
+              const feitos = lista.filter((c) => comPedidoHoje.has(c.id)).length;
+              const proximo = lista.find((c) => !comPedidoHoje.has(c.id));
+              return (
+                <section key={rota.id}>
+                  <button className="mb-2 flex w-full items-baseline justify-between text-left" onClick={() => setRoteiroAberto((x) => !x)} aria-expanded={roteiroAberto}>
+                    <h2 className="titulo text-lg">🗺️ Meu roteiro · {rota.nome}</h2>
+                    <span className="text-sm font-semibold text-zinc-500">{feitos} de {lista.length} {roteiroAberto ? "▲" : "▼"}</span>
+                  </button>
+                  <div className="mb-2 h-2 rounded-full bg-zinc-200 dark:bg-zinc-800"><div className="h-2 rounded-full bg-emerald-500" style={{ width: `${(feitos / lista.length) * 100}%` }} /></div>
+                  {roteiroAberto && (
+                    <div className="cartao divide-y divide-zinc-100 dark:divide-zinc-800">
+                      {lista.map((c, i) => {
+                        const feito = comPedidoHoje.has(c.id);
+                        const ehProximo = proximo?.id === c.id;
+                        return (
+                          <div key={c.id} className={`flex items-center gap-3 p-3 ${ehProximo ? "bg-marca-50 dark:bg-marca-500/10" : ""}`}>
+                            <span className={`grid size-8 shrink-0 place-items-center rounded-lg font-display font-bold ${feito ? "bg-emerald-500 text-white" : ehProximo ? "bg-marca-500 text-white" : "bg-zinc-200 dark:bg-zinc-800"}`}>{feito ? "✓" : i + 1}</span>
+                            <div className="min-w-0 flex-1">
+                              <div className={`truncate font-semibold ${feito ? "text-zinc-400 line-through" : ""}`}>{c.razao_social}</div>
+                              <div className="truncate text-xs text-zinc-500">{ehProximo && <b className="text-marca-600">PRÓXIMO · </b>}{[c.endereco && `${c.endereco}${c.numero ? ", " + c.numero : ""}`, c.bairro].filter(Boolean).join(" · ")}</div>
+                            </div>
+                            {!feito && <button className="shrink-0 rounded-lg bg-marca-500 px-3 py-2 text-sm font-bold text-white" onClick={() => pedidoPara(c)}>Pedido</button>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
 
             <section>
               <h2 className="titulo mb-2 text-lg">Meus pedidos de hoje</h2>

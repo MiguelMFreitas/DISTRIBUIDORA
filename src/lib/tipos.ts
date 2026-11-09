@@ -64,6 +64,7 @@ export type Cliente = {
   telefone: string | null;
   rota_id: string | null;
   vendedor_id: string | null;
+  ordem_visita?: number | null;
   observacao: string | null;
   ativo: boolean;
 };

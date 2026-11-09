@@ -251,4 +251,36 @@ do $$ begin
 exception when insufficient_privilege then raise notice 'OK   vendedor não usa a impressão automática';
 end $$;
 
+
+-- ---------- 20. roteiro de visitas ----------
+reset role;
+insert into rotas (id, nome) values ('60000000-0000-0000-0000-000000000001', 'MONTESE');
+insert into clientes (id, razao_social, rota_id) values
+ ('40000000-0000-0000-0000-000000000011', 'Cliente A', '60000000-0000-0000-0000-000000000001'),
+ ('40000000-0000-0000-0000-000000000012', 'Cliente B', '60000000-0000-0000-0000-000000000001'),
+ ('40000000-0000-0000-0000-000000000013', 'Cliente C', '60000000-0000-0000-0000-000000000001');
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select salvar_ordem_visitas('60000000-0000-0000-0000-000000000001',
+  array['40000000-0000-0000-0000-000000000013','40000000-0000-0000-0000-000000000011','40000000-0000-0000-0000-000000000012']::uuid[]);
+select pg_temp.ok((select string_agg(razao_social, ',' order by ordem_visita) from clientes where rota_id = '60000000-0000-0000-0000-000000000001') = 'Cliente C,Cliente A,Cliente B', 'roteiro salvo na ordem escolhida');
+select definir_vendedor_rota('60000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000b', true);
+select pg_temp.ok((select vendedor_id from rotas where id = '60000000-0000-0000-0000-000000000001') = '00000000-0000-0000-0000-00000000000b', 'rota passa para o João');
+select pg_temp.ok((select count(*) from clientes where rota_id = '60000000-0000-0000-0000-000000000001' and vendedor_id = '00000000-0000-0000-0000-00000000000b') = 3, 'clientes da rota vão para a carteira do João');
+select definir_vendedor_rota('60000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000c', false);
+select pg_temp.ok((select string_agg(razao_social, ',' order by ordem_visita) from clientes where rota_id = '60000000-0000-0000-0000-000000000001') = 'Cliente C,Cliente A,Cliente B', 'novo vendedor segue a mesma ordem');
+do $$ begin
+  perform salvar_ordem_visitas('60000000-0000-0000-0000-000000000001', array['40000000-0000-0000-0000-000000000001']::uuid[]);
+  raise exception 'FALHOU: aceitou cliente de outra rota';
+exception when others then
+  if sqlerrm not like 'Há cliente%' then raise; end if;
+  raise notice 'OK   não aceita cliente de outra rota no roteiro';
+end $$;
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  perform salvar_ordem_visitas('60000000-0000-0000-0000-000000000001', array[]::uuid[]);
+  raise exception 'FALHOU: vendedor mudou o roteiro';
+exception when insufficient_privilege then raise notice 'OK   vendedor não muda o roteiro';
+end $$;
+
 \warn '>>> TODOS OS TESTES PASSARAM'
