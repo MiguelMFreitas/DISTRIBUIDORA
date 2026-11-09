@@ -75,12 +75,18 @@ export default function NovoPedido() {
   useEffect(() => { carregar(); }, [carregar]);
 
   // cliente escolhido: o pedido é do vendedor dono do cliente
+  // Administrador: a venda é dele (pode trocar para o dono do cliente).
+  // Escritório sem ser admin: o pedido é do vendedor dono do cliente.
   function escolherCliente(c: Cliente) {
     setCliente(c);
-    if (c.vendedor_id) setVendedor(c.vendedor_id);
+    if (eu.admin) setVendedor(eu.id);
+    else if (c.vendedor_id) setVendedor(c.vendedor_id);
     else if (!podeVer) return avisar("Este cliente não tem vendedor. Defina o vendedor no cadastro de Clientes.", "erro");
   }
-  const donoFixo = !!cliente?.vendedor_id;
+  const donoFixo = !!cliente?.vendedor_id && !eu.admin;
+  const dono = vendedores.find((v) => v.id === cliente?.vendedor_id);
+  const opcoesVendedor = (eu.admin && dono && dono.id !== eu.id ? vendedores.filter((v) => v.id === eu.id || v.id === dono.id) : vendedores)
+    .slice().sort((a, b) => Number(b.id === eu.id) - Number(a.id === eu.id)); // "eu" primeiro
 
   function adicionar(p: Produto) {
     if (p.estoque <= 0) return avisar(`${p.nome} está sem estoque.`, "erro");
@@ -159,9 +165,14 @@ export default function NovoPedido() {
               <div className="max-w-sm">
                 <label className="rotulo" htmlFor="vend">Vendedor do pedido</label>
                 <select id="vend" className="campo" value={vendedor} onChange={(e) => setVendedor(e.target.value)} disabled={donoFixo}>
-                  {vendedores.map((v) => <option key={v.id} value={v.id}>{v.id === eu.id ? `${v.nome} (eu)` : v.nome}</option>)}
+                  {opcoesVendedor.map((v) => <option key={v.id} value={v.id}>{v.id === eu.id ? `${v.nome} (eu)` : v.id === dono?.id ? `${v.nome} (dono do cliente)` : v.nome}</option>)}
                 </select>
-                <p className="mt-1 text-xs text-zinc-500">{donoFixo ? "É o vendedor dono deste cliente (cadastro de Clientes). O pedido conta para ele." : "Este cliente não tem vendedor: defina no cadastro de Clientes."}</p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  {!cliente ? "Escolha o cliente primeiro."
+                    : eu.admin ? (vendedor === eu.id ? `A venda conta para você.${dono && dono.id !== eu.id ? ` Se o pedido veio do ${dono.nome}, escolha ele.` : ""}` : `A venda conta para ${dono?.nome ?? "o vendedor escolhido"}.`)
+                    : donoFixo ? "É o vendedor dono deste cliente (cadastro de Clientes). O pedido conta para ele."
+                    : "Este cliente não tem vendedor: defina no cadastro de Clientes."}
+                </p>
               </div>
             )}
           </section>
