@@ -85,8 +85,9 @@ export default function NovoPedido() {
   }
   const donoFixo = !!cliente?.vendedor_id && !eu.admin;
   const dono = vendedores.find((v) => v.id === cliente?.vendedor_id);
-  const opcoesVendedor = (eu.admin && dono && dono.id !== eu.id ? vendedores.filter((v) => v.id === eu.id || v.id === dono.id) : vendedores)
-    .slice().sort((a, b) => Number(b.id === eu.id) - Number(a.id === eu.id)); // "eu" primeiro
+  // administrador escolhe qualquer vendedor: "eu" primeiro, depois o dono do cliente, depois os outros
+  const opcoesVendedor = vendedores.slice().sort((a, b) =>
+    Number(b.id === eu.id) - Number(a.id === eu.id) || Number(b.id === dono?.id) - Number(a.id === dono?.id) || a.nome.localeCompare(b.nome, "pt-BR"));
 
   function adicionar(p: Produto) {
     if (p.estoque <= 0) return avisar(`${p.nome} está sem estoque.`, "erro");
@@ -169,7 +170,7 @@ export default function NovoPedido() {
                 </select>
                 <p className="mt-1 text-xs text-zinc-500">
                   {!cliente ? "Escolha o cliente primeiro."
-                    : eu.admin ? (vendedor === eu.id ? `A venda conta para você.${dono && dono.id !== eu.id ? ` Se o pedido veio do ${dono.nome}, escolha ele.` : ""}` : `A venda conta para ${dono?.nome ?? "o vendedor escolhido"}.`)
+                    : eu.admin ? (vendedor === eu.id ? `A venda conta para você. Como administrador, pode escolher qualquer vendedor.` : `A venda conta para ${vendedores.find((v) => v.id === vendedor)?.nome ?? "o vendedor escolhido"}.`)
                     : donoFixo ? "É o vendedor dono deste cliente (cadastro de Clientes). O pedido conta para ele."
                     : "Este cliente não tem vendedor: defina no cadastro de Clientes."}
                 </p>

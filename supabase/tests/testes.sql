@@ -333,17 +333,22 @@ select pg_temp.ok((select vendedor_id from pedidos where id = :'pesc') = '000000
 select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000003',
   '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1}]', null, null, '00000000-0000-0000-0000-00000000000c') ->> 'id' as pdono \gset
 select pg_temp.ok((select vendedor_id from pedidos where id = :'pdono') = '00000000-0000-0000-0000-00000000000c', 'administrador pode creditar ao dono do cliente (Ana)');
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000003',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1}]', null, null, '00000000-0000-0000-0000-00000000000b') ->> 'id' as pterc \gset
+select pg_temp.ok((select vendedor_id from pedidos where id = :'pterc') = '00000000-0000-0000-0000-00000000000b', 'administrador pode creditar a qualquer vendedor (cliente da Ana para o João)');
 select pg_temp.como('00000000-0000-0000-0000-00000000000d');
 select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000003',
   '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1}]') ->> 'id' as pesc2 \gset
 select pg_temp.ok((select vendedor_id from pedidos where id = :'pesc2') = '00000000-0000-0000-0000-00000000000c', 'escritório (não admin) lança no nome do dono do cliente');
 select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select pg_temp.como('00000000-0000-0000-0000-00000000000d');
 do $$ begin
   perform criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000003',
     '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1}]', null, null, '00000000-0000-0000-0000-00000000000b');
-  raise exception 'FALHOU: escritório lançou cliente da Ana no nome do João';
-exception when insufficient_privilege then raise notice 'OK   escritório não lança cliente da Ana no nome do João';
+  raise exception 'FALHOU: escritório (não admin) lançou cliente da Ana no nome do João';
+exception when insufficient_privilege then raise notice 'OK   escritório (não admin) não lança cliente da Ana no nome do João';
 end $$;
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
 do $$ begin
   insert into clientes (razao_social) values ('Sem dono');
   raise exception 'FALHOU: cadastrou cliente sem vendedor';
