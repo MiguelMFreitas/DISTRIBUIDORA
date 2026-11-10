@@ -96,7 +96,7 @@ export default function Ranking() {
   const posicao = useMemo(() => new Map([...(clis ?? [])].sort((a, b) => n(b[ordem]) - n(a[ordem]) || n(b.valor) - n(a.valor)).map((c, i) => [c.cliente_id, i + 1])), [clis, ordem]);
 
   const nomeCli = (c: LinhaC) => c.fantasia || c.cliente;
-  const subCli = (c: LinhaC) => [c.rota, c.bairro].filter(Boolean).join(" · ");
+  const subCli = (c: LinhaC) => [c.rota, c.bairro !== c.rota ? c.bairro : null].filter(Boolean).join(" · ");
   const th = "px-3 py-2 font-semibold";
 
   return (
@@ -139,7 +139,7 @@ export default function Ranking() {
             <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
               <h2 className="titulo text-lg">Todos os clientes ({clis.length})</h2>
               <div className="flex flex-wrap gap-2">
-                <input className="campo max-w-xs" placeholder="🔍 Pesquisar cliente, bairro ou rota" value={busca} onChange={(e) => setBusca(e.target.value)} aria-label="Pesquisar cliente" />
+                <input className="campo max-w-xs" placeholder="🔍 Pesquisar cliente ou bairro" value={busca} onChange={(e) => setBusca(e.target.value)} aria-label="Pesquisar cliente" />
                 <select className="campo w-auto!" value={ordem} onChange={(e) => setOrdem(e.target.value as typeof ordem)} aria-label="Ordenar por">
                   <option value="valor">Ordenar por valor (R$)</option>
                   <option value="pedidos">Ordenar por vezes que comprou</option>
@@ -150,7 +150,7 @@ export default function Ranking() {
             <div className="cartao overflow-x-auto">
               <table className="w-full text-[15px]">
                 <thead className="border-b border-zinc-200 text-left text-xs uppercase text-zinc-500 dark:border-zinc-800">
-                  <tr><th className={th}>#</th><th className={th}>Cliente</th><th className={th}>Rota</th><th className={th}>Vendedor</th><th className={`${th} text-right`}>Vezes</th><th className={`${th} text-right`}>Itens</th><th className={`${th} text-right`}>Valor</th></tr>
+                  <tr><th className={th}>#</th><th className={th}>Cliente</th><th className={th}>Bairro</th><th className={th}>Vendedor</th><th className={`${th} text-right`}>Vezes</th><th className={`${th} text-right`}>Itens</th><th className={`${th} text-right`}>Valor</th></tr>
                 </thead>
                 <tbody className="[&_td]:border-b [&_td]:border-zinc-100 [&_td]:px-3 [&_td]:py-2 dark:[&_td]:border-zinc-800 [&_tr:last-child_td]:border-0">
                   {tabelaClientes.map((c) => {

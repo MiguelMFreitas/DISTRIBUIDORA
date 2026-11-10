@@ -32,7 +32,7 @@ export default function ListaConferencia() {
 
   return (
     <Exige perm="conferencia">
-      <Cabecalho titulo="Conferência de rota" sub="Escolha a carga que voltou para conferir vasilhames, devoluções e trocas." />
+      <Cabecalho titulo="Conferência de carga" sub="Escolha a carga que voltou para conferir vasilhames, devoluções e trocas." />
       <h2 className="titulo mb-2 text-lg">Esperando conferência</h2>
       {pendentes === null ? <p className="text-zinc-500">Carregando…</p> : pendentes.length === 0 ? <Vazio>Nenhuma carga na rua agora.</Vazio> : (
         <div className="grid gap-3 md:grid-cols-2">{pendentes.map((c) => <Cartao key={c.id} c={c} />)}</div>

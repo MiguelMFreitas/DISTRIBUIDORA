@@ -10,11 +10,6 @@ type Aba = { chave: string; nome: string; tabela: string; singular: string; perm
 
 const ABAS: Aba[] = [
   {
-    chave: "rotas", nome: "Rotas", tabela: "rotas", singular: "Rota", perm: "cadastros", ordem: "nome", busca: ["nome"],
-    campos: [{ nome: "nome", rotulo: "Nome da rota", obrigatorio: true, maiusculo: true }, { nome: "ativo", rotulo: "Ativa", tipo: "bool", padrao: true }],
-    colunas: [{ rotulo: "Rota", valor: (l) => <span className="font-semibold">{l.nome}</span> }],
-  },
-  {
     chave: "motoristas", nome: "Motoristas", tabela: "motoristas", singular: "Motorista", perm: "cadastros", ordem: "nome", busca: ["nome", "telefone"],
     campos: [
       { nome: "nome", rotulo: "Nome", obrigatorio: true, largura: 3, maiusculo: true },

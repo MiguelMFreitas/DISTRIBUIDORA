@@ -38,6 +38,8 @@ export default function Roteiros() {
     setVends(((v ?? []) as (Vend & { admin: boolean; permissoes: string[] })[]).filter((x) => x.admin || x.permissoes.includes("pedidos_criar")));
   }, [sb]);
   useEffect(() => { carregar(); }, [carregar]);
+  // aberto pela tela Bairros: já vem com o bairro escolhido
+  useEffect(() => { const b = new URLSearchParams(window.location.search).get("bairro"); if (b) setRotaId(b); }, []);
 
   const rota = rotas.find((r) => r.id === rotaId);
   const nomeVend = (id: string | null) => vends.find((v) => v.id === id)?.nome ?? null;
@@ -76,7 +78,7 @@ export default function Roteiros() {
     if (!troca) return;
     const { error } = await sb.rpc("definir_vendedor_rota", { p_rota: rotaId, p_vendedor: troca.vendedor || null, p_mover_clientes: troca.mover });
     if (error) return avisar(erroMsg(error), "erro");
-    avisar(troca.vendedor ? `Agora ${nomeVend(troca.vendedor)} é o responsável pela rota ${rota?.nome}` : "Rota sem vendedor responsável");
+    avisar(troca.vendedor ? `Agora ${nomeVend(troca.vendedor)} é o responsável pelo bairro ${rota?.nome}` : "Bairro sem vendedor responsável");
     setTroca(null);
     carregar();
   }
@@ -88,18 +90,18 @@ export default function Roteiros() {
 
   return (
     <>
-      <Cabecalho titulo="Roteiro de visitas" sub="Coloque os clientes de cada rota na ordem em que o vendedor visita, do 1º ao último. Se trocar o vendedor, o novo segue a mesma ordem." />
+      <Cabecalho titulo="Roteiro de visitas" sub="Coloque os clientes de cada bairro na ordem em que o vendedor visita, do 1º ao último. Se trocar o vendedor, o novo segue a mesma ordem." />
 
       <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
         {/* rotas */}
         <aside className="space-y-2">
-          {rotas.length === 0 && <Vazio>Nenhuma rota cadastrada. Cadastre em “Rotas, motoristas…”.</Vazio>}
+          {rotas.length === 0 && <Vazio>Nenhum bairro cadastrado. Cadastre em “Bairros”.</Vazio>}
           {rotas.filter((r) => r.ativo).map((r) => {
             const total = clientes.filter((c) => c.rota_id === r.id).length;
             const sem = clientes.filter((c) => c.rota_id === r.id && c.ordem_visita == null).length;
             return (
               <button key={r.id} onClick={() => {
-                if (mudou && r.id !== rotaId) return avisar("Salve a ordem desta rota antes de abrir outra (ou recarregue a página para descartar).", "erro");
+                if (mudou && r.id !== rotaId) return avisar("Salve a ordem deste bairro antes de abrir outro (ou recarregue a página para descartar).", "erro");
                 setRotaId(r.id); setBusca("");
               }}
                 className={`cartao block w-full p-3 text-left ${r.id === rotaId ? "border-marca-500 ring-2 ring-marca-500/30" : "hover:border-zinc-400"}`}>
@@ -113,11 +115,11 @@ export default function Roteiros() {
 
         {/* roteiro da rota escolhida */}
         <section className="min-w-0">
-          {!rota ? <Vazio>Escolha uma rota ao lado.</Vazio> : (
+          {!rota ? <Vazio>Escolha um bairro ao lado.</Vazio> : (
             <div className="space-y-4">
               <div className="cartao flex flex-wrap items-center justify-between gap-3 p-4">
                 <div>
-                  <div className="titulo text-2xl">Rota {rota.nome}</div>
+                  <div className="titulo text-2xl">Bairro {rota.nome}</div>
                   <div className="text-zinc-500">Vendedor responsável: <b className="text-zinc-800 dark:text-zinc-200">{nomeVend(rota.vendedor_id) ?? "nenhum"}</b></div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -185,7 +187,7 @@ export default function Roteiros() {
                       </div>
                     ))}
                   </div>
-                  <p className="mt-1 text-xs text-zinc-500">Clientes desta rota que ainda não estão no roteiro. A rota do cliente se escolhe no cadastro de Clientes.</p>
+                  <p className="mt-1 text-xs text-zinc-500">Clientes deste bairro que ainda não estão no roteiro. O bairro do cliente se escolhe no cadastro de Clientes.</p>
                 </div>
               )}
             </div>
@@ -193,7 +195,7 @@ export default function Roteiros() {
         </section>
       </div>
 
-      <Modal aberto={!!troca} aoFechar={() => setTroca(null)} titulo={`Vendedor da rota ${rota?.nome ?? ""}`} largura="max-w-md"
+      <Modal aberto={!!troca} aoFechar={() => setTroca(null)} titulo={`Vendedor do bairro ${rota?.nome ?? ""}`} largura="max-w-md"
         rodape={<><Botao variante="secundario" onClick={() => setTroca(null)}>Cancelar</Botao><Botao onClick={trocarVendedor}>Confirmar</Botao></>}>
         {troca && (
           <div className="space-y-3">
@@ -204,7 +206,7 @@ export default function Roteiros() {
                 {vends.map((v) => <option key={v.id} value={v.id}>{v.nome}</option>)}
               </select>
             </div>
-            <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">Os clientes desta rota passam para a carteira do novo vendedor: só ele vai ver e fazer pedido para eles. Quando o outro voltar, é só trocar de novo.</p>
+            <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">Os clientes deste bairro passam para a carteira do novo vendedor: só ele vai ver e fazer pedido para eles. Quando o outro voltar, é só trocar de novo.</p>
             <p className="text-sm text-zinc-500">A ordem de visita continua a mesma. O novo vendedor vê o roteiro no celular dele.</p>
           </div>
         )}

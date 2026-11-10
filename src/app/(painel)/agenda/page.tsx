@@ -85,7 +85,7 @@ export default function Agenda() {
 
   return (
     <>
-      <Cabecalho titulo="Agenda de visitas" sub="Escolha a rota de cada vendedor em cada dia e período. No celular, o vendedor vê só os clientes da rota do dia, na ordem do roteiro." />
+      <Cabecalho titulo="Agenda de visitas" sub="Escolha o bairro de cada vendedor em cada dia e período. No celular, o vendedor vê só os clientes do bairro do dia, na ordem do roteiro." />
 
       {vends.length === 0 ? <Vazio>Nenhum vendedor cadastrado (usuário com permissão “Fazer pedidos”).</Vazio> : (
         <div className="space-y-4">
@@ -117,10 +117,10 @@ export default function Agenda() {
                         <td key={t.k} className="px-3 py-2">
                           <select className={`campo ${v ? "border-marca-500! bg-marca-50! font-semibold dark:bg-marca-500/10!" : ""}`} value={v} disabled={!podeEditar}
                             onChange={(e) => setGrade({ ...grade, [k]: e.target.value })} aria-label={`${d.nome} ${t.nome}`}>
-                            <option value="">— folga / sem rota —</option>
-                            {minhas.length > 0 && <optgroup label="Rotas dele">{minhas.map((r) => <option key={r.id} value={r.id}>{r.nome} ({contagem[r.id] ?? 0} clientes)</option>)}</optgroup>}
-                            {livres.length > 0 && <optgroup label="Rotas sem vendedor (passam a ser dele)">{livres.map((r) => <option key={r.id} value={r.id}>{r.nome} ({contagem[r.id] ?? 0} clientes)</option>)}</optgroup>}
-                            {deOutros.length > 0 && <optgroup label="Rotas de outros vendedores (ficam compartilhadas)">{deOutros.map((r) => <option key={r.id} value={r.id}>{r.nome} (também de {nomeVend(r.vendedor_id) ?? "outro"})</option>)}</optgroup>}
+                            <option value="">— folga / sem bairro —</option>
+                            {minhas.length > 0 && <optgroup label="Bairros dele">{minhas.map((r) => <option key={r.id} value={r.id}>{r.nome} ({contagem[r.id] ?? 0} clientes)</option>)}</optgroup>}
+                            {livres.length > 0 && <optgroup label="Bairros sem vendedor (passam a ser dele)">{livres.map((r) => <option key={r.id} value={r.id}>{r.nome} ({contagem[r.id] ?? 0} clientes)</option>)}</optgroup>}
+                            {deOutros.length > 0 && <optgroup label="Bairros de outros vendedores (ficam compartilhados)">{deOutros.map((r) => <option key={r.id} value={r.id}>{r.nome} (também de {nomeVend(r.vendedor_id) ?? "outro"})</option>)}</optgroup>}
                           </select>
                         </td>
                       );
@@ -146,10 +146,10 @@ export default function Agenda() {
 
           <div className="grid gap-3 text-sm text-zinc-600 md:grid-cols-2 dark:text-zinc-400">
             <div className="cartao p-3">
-              <b className="text-zinc-800 dark:text-zinc-200">Bairro de outro vendedor fica compartilhado:</b> os dois veem todos os clientes dele no celular e os dois podem vender (a venda conta para quem fez). Rota sem vendedor, ao ser escolhida, passa a ter este vendedor como responsável.
+              <b className="text-zinc-800 dark:text-zinc-200">Bairro de outro vendedor fica compartilhado:</b> os dois veem todos os clientes dele no celular e os dois podem vender (a venda conta para quem fez). Bairro sem vendedor, ao ser escolhido, passa a ter este vendedor como responsável.
             </div>
             <div className="cartao p-3">
-              {semDia.length ? <><b className="text-amber-700 dark:text-amber-400">Rotas fora da agenda:</b> {semDia.map((r) => r.nome).join(", ")}. Nenhum vendedor tem dia para elas.</> : <b className="text-emerald-700 dark:text-emerald-400">Todas as rotas têm pelo menos um dia na agenda.</b>}
+              {semDia.length ? <><b className="text-amber-700 dark:text-amber-400">Bairros fora da agenda:</b> {semDia.map((r) => r.nome).join(", ")}. Nenhum vendedor tem dia para elas.</> : <b className="text-emerald-700 dark:text-emerald-400">Todos os bairros têm pelo menos um dia na agenda.</b>}
             </div>
           </div>
         </div>

@@ -84,7 +84,7 @@ export default function Romaneio() {
         <div className="rom-info">
           <div><b>Veículo</b><span>{carga.veiculos ? `${carga.veiculos.nome}${carga.veiculos.placa ? " · " + carga.veiculos.placa : ""}` : "—"}</span></div>
           <div><b>Motorista</b><span>{carga.motoristas?.nome ?? "—"}</span></div>
-          <div><b>Rotas</b><span>{rotas}</span></div>
+          <div><b>Bairros</b><span>{rotas}</span></div>
         </div>
 
         <div className="rom-kpis">

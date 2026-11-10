@@ -91,9 +91,9 @@ export default function Pedidos() {
             <option value="">Todos</option>{vendedores.map((v) => <option key={v}>{v}</option>)}
           </select>
         </div>
-        <div><label className="rotulo">Rota</label>
+        <div><label className="rotulo">Bairro</label>
           <select className="campo" value={rota} onChange={(e) => setRota(e.target.value)}>
-            <option value="">Todas</option>{rotas.map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
+            <option value="">Todos</option>{rotas.map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
           </select>
         </div>
         <div><label className="rotulo">Pesquisar</label><input className="campo" placeholder="Cliente, nº, bairro" value={busca} onChange={(e) => setBusca(e.target.value)} /></div>
@@ -105,7 +105,7 @@ export default function Pedidos() {
             <thead className="border-b border-zinc-200 text-left text-xs uppercase text-zinc-500 dark:border-zinc-800">
               <tr>
                 <th className="w-10 px-3 py-2"><input type="checkbox" className="size-4" checked={todosMarcados} onChange={() => setSel(todosMarcados ? new Set() : new Set(visiveis.map((l) => l.id)))} aria-label="Marcar todos" /></th>
-                <th className="px-2 py-2">Nº</th><th className="px-2 py-2">Cliente</th><th className="px-2 py-2">Rota</th><th className="px-2 py-2">Vendedor</th>
+                <th className="px-2 py-2">Nº</th><th className="px-2 py-2">Cliente</th><th className="px-2 py-2">Bairro</th><th className="px-2 py-2">Vendedor</th>
                 <th className="px-2 py-2">Feito em</th><th className="px-2 py-2">Situação</th><th className="px-2 py-2 text-right">Total</th>
               </tr>
             </thead>

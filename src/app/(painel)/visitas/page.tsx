@@ -87,13 +87,13 @@ export default function Visitas() {
           <input type="date" className="campo w-auto!" value={dia} onChange={(e) => e.target.value && setDia(e.target.value)} aria-label="Dia" />
           <Botao variante="secundario" onClick={() => setDia(somarDias(dia, 1))} disabled={ehHoje} aria-label="Próximo dia">→</Botao>
           <Botao variante={soNao ? "primario" : "secundario"} onClick={() => setSoNao(!soNao)}>{soNao ? "✓ " : ""}Só os que não compraram</Botao>
-          {agenda.length > 0 && <Botao variante={todasRotas ? "primario" : "secundario"} onClick={() => setTodasRotas(!todasRotas)}>{todasRotas ? "✓ " : ""}Todas as rotas</Botao>}
+          {agenda.length > 0 && <Botao variante={todasRotas ? "primario" : "secundario"} onClick={() => setTodasRotas(!todasRotas)}>{todasRotas ? "✓ " : ""}Todos os bairros</Botao>}
           <Botao variante="secundario" onClick={() => { setAbertas(new Set(grupos.map((g) => g.chave))); setTimeout(() => window.print(), 100); }}>🖨 Imprimir</Botao>
         </span>
       </Cabecalho>
 
       {pedidos === null ? <div className="cartao p-8 text-center text-zinc-500">Carregando…</div> : grupos.length === 0 ? (
-        <Vazio>{usarAgenda ? "Nenhuma rota na agenda para este dia da semana. Veja em “Agenda de visitas” ou clique em “Todas as rotas”." : "Nenhuma rota com roteiro montado. Monte a ordem dos clientes em “Roteiro de visitas”."}</Vazio>
+        <Vazio>{usarAgenda ? "Nenhum bairro na agenda para este dia da semana. Veja em “Agenda de visitas” ou clique em “Todos os bairros”." : "Nenhum bairro com roteiro montado. Monte a ordem dos clientes em “Roteiro de visitas”."}</Vazio>
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3">
@@ -124,7 +124,7 @@ export default function Visitas() {
                 <div className="mx-4 mb-3 h-2 rounded-full bg-red-200 dark:bg-red-500/30"><div className="h-2 rounded-full bg-emerald-500" style={{ width: `${(g.compraram / g.lista.length) * 100}%` }} /></div>
                 {aberta && (
                   <div className="divide-y divide-zinc-100 border-t border-zinc-100 dark:divide-zinc-800 dark:border-zinc-800">
-                    {lista.length === 0 && <p className="p-4 text-center text-zinc-500">Todos os clientes desta rota compraram. 🎉</p>}
+                    {lista.length === 0 && <p className="p-4 text-center text-zinc-500">Todos os clientes deste bairro compraram. 🎉</p>}
                     {lista.map((c) => {
                       const ps = porCliente.get(c.id);
                       return (

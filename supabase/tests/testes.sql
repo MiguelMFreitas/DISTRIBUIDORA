@@ -402,4 +402,21 @@ select pg_temp.ok((select bool_or(meu) and not bool_and(meu) from pedidos_do_rot
   'a Ana sabe qual pedido é dela e qual é do João');
 select pg_temp.como('00000000-0000-0000-0000-00000000000a');
 
+
+-- ---------- 26. bairros ----------
+select pg_temp.ok((select bairro from clientes where id = '40000000-0000-0000-0000-000000000011') = 'MONTESE', 'cliente fica com o nome do bairro no endereço');
+reset role;
+update rotas set nome = 'MONTESE NOVO' where id = '60000000-0000-0000-0000-000000000001';
+set role authenticated;
+select pg_temp.ok((select bairro from clientes where id = '40000000-0000-0000-0000-000000000011') = 'MONTESE NOVO', 'renomear o bairro atualiza os clientes');
+reset role;
+insert into clientes (razao_social, rota_id, bairro) select 'Antigo sem vendedor', '60000000-0000-0000-0000-000000000001', 'X'
+  where false; -- (não dá para criar sem vendedor; simula cliente antigo desligando a regra só aqui)
+alter table clientes drop constraint clientes_vendedor_obrigatorio;
+insert into clientes (id, razao_social, rota_id) values ('40000000-0000-0000-0000-000000000099', 'Antigo sem vendedor', '60000000-0000-0000-0000-000000000001');
+alter table clientes add constraint clientes_vendedor_obrigatorio check (vendedor_id is not null) not valid;
+update rotas set nome = 'MONTESE' where id = '60000000-0000-0000-0000-000000000001';
+set role authenticated;
+select pg_temp.ok(true, 'renomear bairro com cliente antigo sem vendedor não trava');
+
 \warn '>>> TODOS OS TESTES PASSARAM'

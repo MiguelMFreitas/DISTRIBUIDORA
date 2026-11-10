@@ -424,7 +424,7 @@ export default function Vender() {
             )}
 
             {temAgenda && roteiros.length === 0 && (
-              <div className="rounded-2xl border border-zinc-300 bg-white p-4 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">🗓️ Hoje não tem rota na sua agenda.</div>
+              <div className="rounded-2xl border border-zinc-300 bg-white p-4 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">🗓️ Hoje não tem bairro na sua agenda.</div>
             )}
             {roteiros.map(({ rota, turno, clientes: lista }) => {
               const feitos = lista.filter((c) => comPedidoHoje.has(c.id)).length;

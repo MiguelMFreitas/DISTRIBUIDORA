@@ -26,7 +26,7 @@ export function Cupom({ p, empresa }: { p: Ped; empresa: string }) {
       {c.nome_fantasia && <div>{c.nome_fantasia}</div>}
       <div>{[c.endereco && `${c.endereco}${c.numero ? ", " + c.numero : ""}`, c.bairro, c.cidade].filter(Boolean).join(" - ")}</div>
       {c.referencia && <div>Ref.: {c.referencia}</div>}
-      <div>{c.telefone ? `Tel.: ${c.telefone}` : ""}{c.rotas ? `${c.telefone ? " · " : ""}Rota: ${c.rotas.nome}` : ""}</div>
+      <div>{c.telefone ? `Tel.: ${c.telefone}` : ""}{c.rotas ? `${c.telefone ? " · " : ""}Bairro: ${c.rotas.nome}` : ""}</div>
       <div className="c-sep" />
       {p.pedido_itens.map((i) => (
         <div key={i.id} className="c-it">

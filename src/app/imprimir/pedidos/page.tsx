@@ -80,7 +80,7 @@ function Conteudo() {
           Ordem:{" "}
           <select value={ordem} onChange={(e) => { const o = e.target.value as "numero" | "rota" | "vendedor"; setOrdem(o); try { localStorage.setItem("imprimir_ordem", o); } catch {} }} style={{ color: "#111", borderRadius: 6, border: 0, padding: "2px 4px" }}>
             <option value="numero">Nº do pedido</option>
-            <option value="rota">Rota e bairro</option>
+            <option value="rota">Bairro</option>
             <option value="vendedor">Vendedor</option>
           </select>
         </label>
@@ -119,7 +119,7 @@ function Conteudo() {
               </div>
               <div className="ped-cli">
                 <div><div className="nome">{c.razao_social}</div>{c.nome_fantasia && <div>{c.nome_fantasia}</div>}</div>
-                <div style={{ textAlign: "right" }}>{c.rotas && <div><b>Rota</b>{c.rotas.nome}</div>}{c.cpf_cnpj && <div><b>CPF/CNPJ</b>{c.cpf_cnpj}</div>}</div>
+                <div style={{ textAlign: "right" }}>{c.rotas && <div><b>Bairro</b>{c.rotas.nome}</div>}{c.cpf_cnpj && <div><b>CPF/CNPJ</b>{c.cpf_cnpj}</div>}</div>
                 <div><b>Endereço</b>{[c.endereco && `${c.endereco}${c.numero ? ", " + c.numero : ""}`, c.bairro, c.cidade].filter(Boolean).join(" · ") || "—"}{c.referencia && <> · <i>{c.referencia}</i></>}</div>
                 <div style={{ textAlign: "right" }}><b>Tel.</b>{c.telefone ?? "—"}</div>
               </div>

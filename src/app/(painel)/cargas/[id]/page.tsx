@@ -76,7 +76,7 @@ export default function MontarCarga() {
     return [...g.entries()].sort((a, b) => (nomeRota[a[0]] ?? "zzz").localeCompare(nomeRota[b[0]] ?? "zzz"));
   }, [disponiveis, nomeRota]);
 
-  const rotasNaCarga = [...new Set(naCarga.map((p) => nomeRota[p.clientes.rota_id ?? ""] ?? "SEM ROTA"))].sort();
+  const rotasNaCarga = [...new Set(naCarga.map((p) => nomeRota[p.clientes.rota_id ?? ""] ?? "SEM BAIRRO"))].sort();
   const peso = naCarga.reduce((s, p) => s + Number(p.peso_kg), 0);
   const valor = naCarga.reduce((s, p) => s + Number(p.total), 0);
   const clientes = new Set(naCarga.map((p) => p.clientes.razao_social)).size;
@@ -153,7 +153,7 @@ export default function MontarCarga() {
               onBlur={(e) => { const v = e.target.value.trim().toLocaleUpperCase("pt-BR") || null; if (v !== (carga.nome ?? null)) atualizarCarga({ nome: v }); }}
               onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()} />
             {montando && rotasNaCarga.length > 0 && (
-              <Botao variante="secundario" onClick={() => atualizarCarga({ nome: rotasNaCarga.join(" + ") })}>Usar as rotas: {rotasNaCarga.join(" + ")}</Botao>
+              <Botao variante="secundario" onClick={() => atualizarCarga({ nome: rotasNaCarga.join(" + ") })}>Usar os bairros: {rotasNaCarga.join(" + ")}</Botao>
             )}
           </div>
         </div>
@@ -205,9 +205,9 @@ export default function MontarCarga() {
             <h2 className="titulo mb-2 text-lg">Pedidos esperando carga</h2>
             <div className="mb-2 flex gap-2">
               <select className="campo w-auto!" value={filtroRota} onChange={(e) => setFiltroRota(e.target.value)}>
-                <option value="">Todas as rotas</option>
+                <option value="">Todos os bairros</option>
                 {rotas.map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
-                <option value="-">Sem rota</option>
+                <option value="-">Sem bairro</option>
               </select>
               <input className="campo" placeholder="Pesquisar cliente, bairro, nº" value={busca} onChange={(e) => setBusca(e.target.value)} />
             </div>
@@ -216,8 +216,8 @@ export default function MontarCarga() {
               {grupos.map(([rota, lista]) => (
                 <div key={rota} className="cartao overflow-hidden">
                   <div className="flex items-center justify-between gap-2 bg-zinc-50 px-3 py-2 dark:bg-zinc-800/60">
-                    <span className="font-semibold">{nomeRota[rota] ?? "Sem rota"} <span className="text-sm font-normal text-zinc-500">· {lista.length} pedidos · {fmtPeso(lista.reduce((s, p) => s + Number(p.peso_kg), 0))}</span></span>
-                    <Botao tamanho="p" variante="secundario" onClick={() => marcar(lista.map((p) => p.id), true)}>Adicionar rota inteira →</Botao>
+                    <span className="font-semibold">{nomeRota[rota] ?? "Sem bairro"} <span className="text-sm font-normal text-zinc-500">· {lista.length} pedidos · {fmtPeso(lista.reduce((s, p) => s + Number(p.peso_kg), 0))}</span></span>
+                    <Botao tamanho="p" variante="secundario" onClick={() => marcar(lista.map((p) => p.id), true)}>Adicionar bairro inteiro →</Botao>
                   </div>
                   {lista.map((p) => (
                     <div key={p.id} className="flex items-center gap-3 border-t border-zinc-100 px-3 py-2 dark:border-zinc-800">
@@ -245,7 +245,7 @@ export default function MontarCarga() {
               <div key={p.id} className="flex items-center gap-3 border-t border-zinc-100 px-3 py-2 first:border-0 dark:border-zinc-800">
                 <button className="min-w-0 flex-1 text-left" onClick={() => setAberto(p.id)}>
                   <div className="truncate font-medium">{p.numero} · {p.clientes.razao_social}{!salvo.has(p.id) && <span className="ml-2 text-xs font-bold text-marca-600">novo</span>}</div>
-                  <div className="text-xs text-zinc-500">{nomeRota[p.clientes.rota_id ?? ""] ?? "Sem rota"} · {p.clientes.bairro} · {fmtPeso(p.peso_kg)} · {fmtMoeda(p.total)}</div>
+                  <div className="text-xs text-zinc-500">{nomeRota[p.clientes.rota_id ?? ""] ?? "Sem bairro"} · {p.clientes.bairro} · {fmtPeso(p.peso_kg)} · {fmtMoeda(p.total)}</div>
                 </button>
                 {montando && <Botao tamanho="p" variante="secundario" onClick={() => marcar([p.id], false)}>Tirar</Botao>}
               </div>
