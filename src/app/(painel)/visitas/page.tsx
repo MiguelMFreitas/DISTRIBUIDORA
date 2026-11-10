@@ -5,6 +5,7 @@ import { supabaseNavegador } from "@/lib/supabase/client";
 import { erroMsg, fmtMoeda, hojeISO } from "@/lib/formato";
 import { Botao, Cabecalho, Vazio, avisar } from "@/components/ui";
 import { Exige } from "@/components/perfil-contexto";
+import { NOME_TURNO, type ItemAgenda, type Turno } from "@/lib/agenda";
 
 type Rota = { id: string; nome: string; vendedor_id: string | null; perfis: { nome: string } | null };
 type Cli = { id: string; razao_social: string; nome_fantasia: string | null; bairro: string | null; telefone: string | null; rota_id: string; ordem_visita: number };
@@ -20,12 +21,16 @@ export default function Visitas() {
   const [pedidos, setPedidos] = useState<Ped[] | null>(null);
   const [soNao, setSoNao] = useState(false);
   const [abertas, setAbertas] = useState<Set<string>>(new Set());
+  const [agenda, setAgenda] = useState<ItemAgenda[]>([]);
+  const [todasRotas, setTodasRotas] = useState(false);
 
   useEffect(() => {
     Promise.all([
       sb.from("rotas").select("id, nome, vendedor_id, perfis(nome)").eq("ativo", true).order("nome"),
       sb.from("clientes").select("id, razao_social, nome_fantasia, bairro, telefone, rota_id, ordem_visita").eq("ativo", true).not("ordem_visita", "is", null),
-    ]).then(([r, c]) => {
+      sb.from("agenda_visitas").select("vendedor_id, dia_semana, turno, rota_id"),
+    ]).then(([r, c, a]) => {
+      setAgenda((a.data ?? []) as ItemAgenda[]);
       if (r.error || c.error) return avisar(erroMsg(r.error || c.error), "erro");
       setRotas((r.data ?? []) as unknown as Rota[]);
       setClientes((c.data ?? []) as Cli[]);
@@ -50,16 +55,26 @@ export default function Visitas() {
     return m;
   }, [pedidos]);
 
-  const grupos = useMemo(() => rotas.map((r) => {
-    const lista = clientes.filter((c) => c.rota_id === r.id).sort((a, b) => a.ordem_visita - b.ordem_visita);
-    const compraram = lista.filter((c) => porCliente.has(c.id));
-    return { rota: r, lista, compraram: compraram.length, naoCompraram: lista.length - compraram.length, valor: compraram.reduce((s, c) => s + porCliente.get(c.id)!.reduce((x, p) => x + Number(p.total), 0), 0) };
-  }).filter((g) => g.lista.length), [rotas, clientes, porCliente]);
+  // com agenda: só as rotas do dia da semana escolhido, separadas por manhã/tarde
+  const usarAgenda = agenda.length > 0 && !todasRotas;
+  const grupos = useMemo(() => {
+    const dow = new Date(dia + "T12:00:00").getDay();
+    const slots: { rota: Rota; turno: Turno | null }[] = usarAgenda
+      ? agenda.filter((a) => a.dia_semana === dow).sort((a, b) => a.turno.localeCompare(b.turno) * -1 || 0)
+          .map((a) => ({ rota: rotas.find((r) => r.id === a.rota_id)!, turno: a.turno })).filter((x) => x.rota)
+          .sort((a, b) => (a.turno === b.turno ? a.rota.nome.localeCompare(b.rota.nome, "pt-BR") : a.turno === "manha" ? -1 : 1))
+      : rotas.map((rota) => ({ rota, turno: null }));
+    return slots.map(({ rota: r, turno }) => {
+      const lista = clientes.filter((c) => c.rota_id === r.id).sort((a, b) => a.ordem_visita - b.ordem_visita);
+      const compraram = lista.filter((c) => porCliente.has(c.id));
+      return { chave: `${turno}-${r.id}`, rota: r, turno, lista, compraram: compraram.length, naoCompraram: lista.length - compraram.length, valor: compraram.reduce((s, c) => s + porCliente.get(c.id)!.reduce((x, p) => x + Number(p.total), 0), 0) };
+    }).filter((g) => g.lista.length);
+  }, [rotas, clientes, porCliente, agenda, usarAgenda, dia]);
 
   const tot = grupos.reduce((s, g) => ({ clientes: s.clientes + g.lista.length, sim: s.sim + g.compraram, nao: s.nao + g.naoCompraram }), { clientes: 0, sim: 0, nao: 0 });
   const ehHoje = dia === hojeISO();
   const alternar = (id: string) => setAbertas((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const tudoAberto = grupos.length > 0 && grupos.every((g) => abertas.has(g.rota.id));
+  const tudoAberto = grupos.length > 0 && grupos.every((g) => abertas.has(g.chave));
 
   return (
     <Exige perm="pedidos_ver_todos">
@@ -69,12 +84,13 @@ export default function Visitas() {
           <input type="date" className="campo w-auto!" value={dia} onChange={(e) => e.target.value && setDia(e.target.value)} aria-label="Dia" />
           <Botao variante="secundario" onClick={() => setDia(somarDias(dia, 1))} disabled={ehHoje} aria-label="Próximo dia">→</Botao>
           <Botao variante={soNao ? "primario" : "secundario"} onClick={() => setSoNao(!soNao)}>{soNao ? "✓ " : ""}Só os que não compraram</Botao>
-          <Botao variante="secundario" onClick={() => { setAbertas(new Set(grupos.map((g) => g.rota.id))); setTimeout(() => window.print(), 100); }}>🖨 Imprimir</Botao>
+          {agenda.length > 0 && <Botao variante={todasRotas ? "primario" : "secundario"} onClick={() => setTodasRotas(!todasRotas)}>{todasRotas ? "✓ " : ""}Todas as rotas</Botao>}
+          <Botao variante="secundario" onClick={() => { setAbertas(new Set(grupos.map((g) => g.chave))); setTimeout(() => window.print(), 100); }}>🖨 Imprimir</Botao>
         </span>
       </Cabecalho>
 
       {pedidos === null ? <div className="cartao p-8 text-center text-zinc-500">Carregando…</div> : grupos.length === 0 ? (
-        <Vazio>Nenhuma rota com roteiro montado. Monte a ordem dos clientes em “Roteiro de visitas”.</Vazio>
+        <Vazio>{usarAgenda ? "Nenhuma rota na agenda para este dia da semana. Veja em “Agenda de visitas” ou clique em “Todas as rotas”." : "Nenhuma rota com roteiro montado. Monte a ordem dos clientes em “Roteiro de visitas”."}</Vazio>
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-3">
@@ -83,17 +99,17 @@ export default function Visitas() {
             <div className="cartao p-4"><div className="text-xs font-semibold uppercase text-zinc-500">Não compraram</div><div className="font-display text-3xl font-bold text-red-600">{tot.nao}</div></div>
           </div>
           <div className="nao-imprimir text-right">
-            <button className="text-sm font-semibold text-marca-600" onClick={() => setAbertas(tudoAberto ? new Set() : new Set(grupos.map((g) => g.rota.id)))}>{tudoAberto ? "Fechar todas" : "Abrir todas"}</button>
+            <button className="text-sm font-semibold text-marca-600" onClick={() => setAbertas(tudoAberto ? new Set() : new Set(grupos.map((g) => g.chave)))}>{tudoAberto ? "Fechar todas" : "Abrir todas"}</button>
           </div>
 
           {grupos.map((g) => {
-            const aberta = abertas.has(g.rota.id);
+            const aberta = abertas.has(g.chave);
             const lista = soNao ? g.lista.filter((c) => !porCliente.has(c.id)) : g.lista;
             return (
-              <section key={g.rota.id} className="cartao overflow-hidden">
-                <button onClick={() => alternar(g.rota.id)} aria-expanded={aberta} className="flex w-full flex-wrap items-center justify-between gap-3 p-4 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+              <section key={g.chave} className="cartao overflow-hidden">
+                <button onClick={() => alternar(g.chave)} aria-expanded={aberta} className="flex w-full flex-wrap items-center justify-between gap-3 p-4 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                   <div>
-                    <div className="titulo text-xl">{g.rota.nome}</div>
+                    <div className="titulo text-xl">{g.turno ? `${g.turno === "manha" ? "☀️" : "🌇"} ${NOME_TURNO[g.turno]} · ` : ""}{g.rota.nome}</div>
                     <div className="text-sm text-zinc-500">👤 {g.rota.perfis?.nome ?? "sem vendedor"} · {g.lista.length} clientes · {fmtMoeda(g.valor)}</div>
                   </div>
                   <div className="flex items-center gap-2">

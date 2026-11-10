@@ -11,6 +11,7 @@ import {
   type Catalogo, type ItemPedido, type PedidoEnviado, type PedidoFila,
 } from "@/lib/offline";
 import { Avisos, avisar } from "@/components/ui";
+import { NOME_TURNO, turnoAgora, type Turno } from "@/lib/agenda";
 
 type Tela = "inicio" | "cliente" | "itens" | "revisar" | "pronto";
 type Rascunho = { client_id: string; cliente: Cliente | null; itens: ItemPedido[]; observacao: string };
@@ -198,19 +199,30 @@ export default function Vender() {
     return s;
   }, [hojeServidor, fila, enviados, comPedidoServidor]);
 
-  // roteiro de visitas das rotas em que este vendedor é o responsável
-  const roteiros = useMemo(() => (cat?.rotas ?? []).map((rt) => ({
-    rota: rt,
-    clientes: (cat?.clientes ?? []).filter((c) => c.rota_id === rt.id && c.ordem_visita != null).sort((a, b) => a.ordem_visita! - b.ordem_visita!),
-  })).filter((x) => x.clientes.length), [cat]);
+  // Roteiro do dia: rotas da agenda (manhã/tarde) do dia da semana.
+  // Sem agenda cadastrada, mostra todas as rotas do vendedor (como antes).
+  const rotasDoDia = useCallback((dia: number): { rota: NonNullable<typeof cat>["rotas"][number]; turno: Turno | null }[] => {
+    if (!cat) return [];
+    if (!cat.agenda?.length) return cat.rotas.map((rota) => ({ rota, turno: null }));
+    return (["manha", "tarde"] as Turno[]).flatMap((t) => cat.agenda.filter((a) => a.dia_semana === dia && a.turno === t)
+      .map((a) => ({ rota: cat.rotas.find((r) => r.id === a.rota_id)!, turno: t })).filter((x) => x.rota));
+  }, [cat]);
+  const clientesDaRota = useCallback((rotaId: string) => (cat?.clientes ?? []).filter((c) => c.rota_id === rotaId && c.ordem_visita != null).sort((a, b) => a.ordem_visita! - b.ordem_visita!), [cat]);
+  const roteiros = useMemo(() => rotasDoDia(new Date().getDay()).map((x) => ({ ...x, clientes: clientesDaRota(x.rota.id) })).filter((x) => x.clientes.length), [rotasDoDia, clientesDaRota]);
+  const temAgenda = !!cat?.agenda?.length;
 
-  const faltamHoje = useMemo(() => roteiros.flatMap((x) => x.clientes).filter((c) => !comPedidoHoje.has(c.id)), [roteiros, comPedidoHoje]);
+  const faltamHoje = useMemo(() => {
+    const todos = roteiros.flatMap((x) => x.clientes);
+    return todos.filter((c, i) => !comPedidoHoje.has(c.id) && todos.findIndex((y) => y.id === c.id) === i);
+  }, [roteiros, comPedidoHoje]);
   const naoCompraramAntes = useMemo(() => {
     const ant = comPedidoServidor.anterior;
     if (!ant) return [];
     const set = new Set(ant.ids);
-    return roteiros.flatMap((x) => x.clientes).filter((c) => !set.has(c.id));
-  }, [roteiros, comPedidoServidor]);
+    // clientes das rotas que estavam na agenda daquele dia
+    const doDia = rotasDoDia(new Date(ant.dia + "T12:00:00").getDay()).flatMap((x) => clientesDaRota(x.rota.id));
+    return doDia.filter((c, i) => !set.has(c.id) && doDia.findIndex((y) => y.id === c.id) === i);
+  }, [rotasDoDia, clientesDaRota, comPedidoServidor]);
   const tarde = new Date().getHours() >= 14;
   const nomes = (l: Cliente[]) => l.slice(0, 6).map((c) => c.nome_fantasia || c.razao_social).join(", ") + (l.length > 6 ? ` e mais ${l.length - 6}` : "");
 
@@ -392,13 +404,19 @@ export default function Vender() {
               </section>
             )}
 
-            {roteiros.map(({ rota, clientes: lista }) => {
+            {temAgenda && roteiros.length === 0 && (
+              <div className="rounded-2xl border border-zinc-300 bg-white p-4 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">🗓️ Hoje não tem rota na sua agenda.</div>
+            )}
+            {roteiros.map(({ rota, turno, clientes: lista }) => {
               const feitos = lista.filter((c) => comPedidoHoje.has(c.id)).length;
               const proximo = lista.find((c) => !comPedidoHoje.has(c.id));
               return (
-                <section key={rota.id} id="meu-roteiro" className="scroll-mt-20">
+                <section key={`${turno}-${rota.id}`} id={turno !== "tarde" ? "meu-roteiro" : undefined} className="scroll-mt-20">
                   <button className="mb-2 flex w-full items-baseline justify-between text-left" onClick={() => setRoteiroAberto((x) => !x)} aria-expanded={roteiroAberto}>
-                    <h2 className="titulo text-lg">🗺️ Meu roteiro · {rota.nome}</h2>
+                    <h2 className="titulo text-lg">
+                      🗺️ {turno ? `${NOME_TURNO[turno]} · ` : "Meu roteiro · "}{rota.nome}
+                      {turno && turno === turnoAgora() && <span className="ml-2 rounded-full bg-marca-500 px-2 py-0.5 align-middle font-sans text-xs font-bold normal-case tracking-normal text-white">agora</span>}
+                    </h2>
                     <span className="text-sm font-semibold text-zinc-500">{feitos} de {lista.length} {roteiroAberto ? "▲" : "▼"}</span>
                   </button>
                   <div className="mb-2 h-2 rounded-full bg-zinc-200 dark:bg-zinc-800"><div className="h-2 rounded-full bg-emerald-500" style={{ width: `${(feitos / lista.length) * 100}%` }} /></div>

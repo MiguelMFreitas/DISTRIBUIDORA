@@ -3,6 +3,7 @@
 import { openDB, type IDBPDatabase } from "idb";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Cliente, Perfil, Produto } from "./tipos";
+import type { ItemAgenda } from "./agenda";
 
 /* ------------------------------------------------------------------
  * Tudo que o app do vendedor precisa para funcionar sem internet:
@@ -49,6 +50,7 @@ export type Catalogo = {
   produtos: Produto[];
   clientes: Cliente[];
   rotas: RotaVendedor[]; // rotas em que o vendedor é o responsável (roteiro de visitas)
+  agenda: ItemAgenda[];  // qual rota em cada dia/período (vazio = todas as rotas todo dia)
   categorias: { id: string; nome: string; ordem: number }[];
   perfil: Perfil | null;
   atualizado_em: string | null;
@@ -70,31 +72,32 @@ function db() {
 
 export async function lerCatalogo(): Promise<Catalogo> {
   const d = await db();
-  const [produtos, clientes, categorias, perfil, atualizado_em, rotas] = await Promise.all([
-    d.get("catalogo", "produtos"), d.get("catalogo", "clientes"), d.get("catalogo", "categorias"), d.get("catalogo", "perfil"), d.get("catalogo", "atualizado_em"), d.get("catalogo", "rotas"),
+  const [produtos, clientes, categorias, perfil, atualizado_em, rotas, agenda] = await Promise.all([
+    d.get("catalogo", "produtos"), d.get("catalogo", "clientes"), d.get("catalogo", "categorias"), d.get("catalogo", "perfil"), d.get("catalogo", "atualizado_em"), d.get("catalogo", "rotas"), d.get("catalogo", "agenda"),
   ]);
-  return { produtos: produtos ?? [], clientes: clientes ?? [], categorias: categorias ?? [], perfil: perfil ?? null, atualizado_em: atualizado_em ?? null, rotas: rotas ?? [] };
+  return { produtos: produtos ?? [], clientes: clientes ?? [], categorias: categorias ?? [], perfil: perfil ?? null, atualizado_em: atualizado_em ?? null, rotas: rotas ?? [], agenda: agenda ?? [] };
 }
 
 /** Baixa o catálogo do servidor e guarda no aparelho */
 export async function atualizarCatalogo(sb: SupabaseClient, userId: string): Promise<Catalogo> {
-  const [p, c, cat, pf, rt] = await Promise.all([
+  const [p, c, cat, pf, rt, ag] = await Promise.all([
     sb.from("produtos").select("*").eq("ativo", true).order("nome"),
     sb.from("clientes").select("id, codigo, razao_social, nome_fantasia, cpf_cnpj, endereco, numero, bairro, cidade, telefone, rota_id, vendedor_id, ordem_visita, observacao, ativo").eq("ativo", true).order("razao_social"),
     sb.from("categorias").select("id, nome, ordem").order("ordem"),
     sb.from("perfis").select("*").eq("id", userId).single(),
     sb.from("rotas").select("id, nome, vendedor_id").eq("vendedor_id", userId).eq("ativo", true).order("nome"),
+    sb.from("agenda_visitas").select("vendedor_id, dia_semana, turno, rota_id").eq("vendedor_id", userId),
   ]);
-  const erro = p.error || c.error || cat.error || pf.error || rt.error;
+  const erro = p.error || c.error || cat.error || pf.error || rt.error || ag.error;
   if (erro) throw erro;
   const agora = new Date().toISOString();
   const d = await db();
   const tx = d.transaction("catalogo", "readwrite");
   await Promise.all([
     tx.store.put(p.data, "produtos"), tx.store.put(c.data, "clientes"), tx.store.put(cat.data, "categorias"),
-    tx.store.put(pf.data, "perfil"), tx.store.put(agora, "atualizado_em"), tx.store.put(rt.data, "rotas"), tx.done,
+    tx.store.put(pf.data, "perfil"), tx.store.put(agora, "atualizado_em"), tx.store.put(rt.data, "rotas"), tx.store.put(ag.data, "agenda"), tx.done,
   ]);
-  return { produtos: p.data as Produto[], clientes: c.data as Cliente[], categorias: cat.data ?? [], perfil: pf.data as Perfil, atualizado_em: agora, rotas: (rt.data ?? []) as RotaVendedor[] };
+  return { produtos: p.data as Produto[], clientes: c.data as Cliente[], categorias: cat.data ?? [], perfil: pf.data as Perfil, atualizado_em: agora, rotas: (rt.data ?? []) as RotaVendedor[], agenda: (ag.data ?? []) as ItemAgenda[] };
 }
 
 export async function lerFila(): Promise<PedidoFila[]> {

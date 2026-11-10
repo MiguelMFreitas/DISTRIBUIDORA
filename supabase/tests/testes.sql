@@ -355,4 +355,34 @@ do $$ begin
 exception when check_violation then raise notice 'OK   não cadastra cliente sem vendedor';
 end $$;
 
+
+-- ---------- 24. agenda de visitas ----------
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+reset role;
+insert into rotas (id, nome) values ('60000000-0000-0000-0000-000000000002', 'CENTRO TESTE');
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+-- MONTESE é da Ana (teste 20); CENTRO TESTE não tem vendedor
+select salvar_agenda('00000000-0000-0000-0000-00000000000c', '[
+  {"dia":1,"turno":"manha","rota_id":"60000000-0000-0000-0000-000000000001"},
+  {"dia":1,"turno":"tarde","rota_id":"60000000-0000-0000-0000-000000000002"},
+  {"dia":2,"turno":"manha","rota_id":"60000000-0000-0000-0000-000000000001"}]');
+select pg_temp.ok((select count(*) from agenda_visitas where vendedor_id = '00000000-0000-0000-0000-00000000000c') = 3, 'agenda da Ana salva (3 períodos)');
+select pg_temp.ok((select vendedor_id from rotas where id = '60000000-0000-0000-0000-000000000002') = '00000000-0000-0000-0000-00000000000c', 'rota sem vendedor passa a ser da Ana');
+do $$ begin
+  perform salvar_agenda('00000000-0000-0000-0000-00000000000b', '[{"dia":3,"turno":"manha","rota_id":"60000000-0000-0000-0000-000000000001"}]');
+  raise exception 'FALHOU: João pegou rota da Ana na agenda';
+exception when others then
+  if sqlerrm not like 'A rota % é do vendedor%' then raise; end if;
+  raise notice 'OK   não põe na agenda do João uma rota da Ana';
+end $$;
+select salvar_agenda('00000000-0000-0000-0000-00000000000c', '[{"dia":5,"turno":"tarde","rota_id":"60000000-0000-0000-0000-000000000001"}]');
+select pg_temp.ok((select count(*) from agenda_visitas where vendedor_id = '00000000-0000-0000-0000-00000000000c') = 1, 'salvar de novo substitui a semana inteira');
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  perform salvar_agenda('00000000-0000-0000-0000-00000000000b', '[]');
+  raise exception 'FALHOU: vendedor mudou a agenda';
+exception when insufficient_privilege then raise notice 'OK   vendedor não muda a agenda';
+end $$;
+
 \warn '>>> TODOS OS TESTES PASSARAM'
