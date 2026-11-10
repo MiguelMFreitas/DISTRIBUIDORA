@@ -85,7 +85,12 @@ export async function atualizarCatalogo(sb: SupabaseClient, userId: string): Pro
     sb.from("clientes").select("id, codigo, razao_social, nome_fantasia, cpf_cnpj, endereco, numero, bairro, cidade, telefone, rota_id, vendedor_id, ordem_visita, observacao, ativo").eq("ativo", true).order("razao_social"),
     sb.from("categorias").select("id, nome, ordem").order("ordem"),
     sb.from("perfis").select("*").eq("id", userId).single(),
-    sb.from("rotas").select("id, nome, vendedor_id").eq("vendedor_id", userId).eq("ativo", true).order("nome"),
+    // rotas em que ele trabalha: as que é responsável e as da agenda dele (bairro compartilhado)
+    sb.rpc("rotas_do_vendedor", { p_vendedor: userId }).then(async (r) => {
+      if (r.error) return r;
+      const ids = (r.data ?? []) as string[];
+      return ids.length ? sb.from("rotas").select("id, nome, vendedor_id").in("id", ids).eq("ativo", true).order("nome") : { data: [], error: null };
+    }),
     sb.from("agenda_visitas").select("vendedor_id, dia_semana, turno, rota_id").eq("vendedor_id", userId),
   ]);
   const erro = p.error || c.error || cat.error || pf.error || rt.error || ag.error;

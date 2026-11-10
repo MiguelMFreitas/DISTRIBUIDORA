@@ -23,13 +23,16 @@ export default function Visitas() {
   const [abertas, setAbertas] = useState<Set<string>>(new Set());
   const [agenda, setAgenda] = useState<ItemAgenda[]>([]);
   const [todasRotas, setTodasRotas] = useState(false);
+  const [nomes, setNomes] = useState<Record<string, string>>({});
 
   useEffect(() => {
     Promise.all([
       sb.from("rotas").select("id, nome, vendedor_id, perfis(nome)").eq("ativo", true).order("nome"),
       sb.from("clientes").select("id, razao_social, nome_fantasia, bairro, telefone, rota_id, ordem_visita").eq("ativo", true).not("ordem_visita", "is", null),
       sb.from("agenda_visitas").select("vendedor_id, dia_semana, turno, rota_id"),
-    ]).then(([r, c, a]) => {
+      sb.from("perfis").select("id, nome"),
+    ]).then(([r, c, a, pf]) => {
+      setNomes(Object.fromEntries(((pf.data ?? []) as { id: string; nome: string }[]).map((x) => [x.id, x.nome])));
       setAgenda((a.data ?? []) as ItemAgenda[]);
       if (r.error || c.error) return avisar(erroMsg(r.error || c.error), "erro");
       setRotas((r.data ?? []) as unknown as Rota[]);
@@ -59,15 +62,15 @@ export default function Visitas() {
   const usarAgenda = agenda.length > 0 && !todasRotas;
   const grupos = useMemo(() => {
     const dow = new Date(dia + "T12:00:00").getDay();
-    const slots: { rota: Rota; turno: Turno | null }[] = usarAgenda
+    const slots: { rota: Rota; turno: Turno | null; vendedor_id?: string }[] = usarAgenda
       ? agenda.filter((a) => a.dia_semana === dow).sort((a, b) => a.turno.localeCompare(b.turno) * -1 || 0)
-          .map((a) => ({ rota: rotas.find((r) => r.id === a.rota_id)!, turno: a.turno })).filter((x) => x.rota)
+          .map((a) => ({ rota: rotas.find((r) => r.id === a.rota_id)!, turno: a.turno, vendedor_id: a.vendedor_id })).filter((x) => x.rota)
           .sort((a, b) => (a.turno === b.turno ? a.rota.nome.localeCompare(b.rota.nome, "pt-BR") : a.turno === "manha" ? -1 : 1))
       : rotas.map((rota) => ({ rota, turno: null }));
-    return slots.map(({ rota: r, turno }) => {
+    return slots.map(({ rota: r, turno, vendedor_id }) => {
       const lista = clientes.filter((c) => c.rota_id === r.id).sort((a, b) => a.ordem_visita - b.ordem_visita);
       const compraram = lista.filter((c) => porCliente.has(c.id));
-      return { chave: `${turno}-${r.id}`, rota: r, turno, lista, compraram: compraram.length, naoCompraram: lista.length - compraram.length, valor: compraram.reduce((s, c) => s + porCliente.get(c.id)!.reduce((x, p) => x + Number(p.total), 0), 0) };
+      return { chave: `${turno}-${r.id}-${vendedor_id ?? ""}`, rota: r, turno, vendedor_id, lista, compraram: compraram.length, naoCompraram: lista.length - compraram.length, valor: compraram.reduce((s, c) => s + porCliente.get(c.id)!.reduce((x, p) => x + Number(p.total), 0), 0) };
     }).filter((g) => g.lista.length);
   }, [rotas, clientes, porCliente, agenda, usarAgenda, dia]);
 
@@ -110,7 +113,7 @@ export default function Visitas() {
                 <button onClick={() => alternar(g.chave)} aria-expanded={aberta} className="flex w-full flex-wrap items-center justify-between gap-3 p-4 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                   <div>
                     <div className="titulo text-xl">{g.turno ? `${g.turno === "manha" ? "☀️" : "🌇"} ${NOME_TURNO[g.turno]} · ` : ""}{g.rota.nome}</div>
-                    <div className="text-sm text-zinc-500">👤 {g.rota.perfis?.nome ?? "sem vendedor"} · {g.lista.length} clientes · {fmtMoeda(g.valor)}</div>
+                    <div className="text-sm text-zinc-500">👤 {(g.vendedor_id && nomes[g.vendedor_id]) || g.rota.perfis?.nome || "sem vendedor"} · {g.lista.length} clientes · {fmtMoeda(g.valor)}</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-bold text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200">✅ {g.compraram} compraram</span>

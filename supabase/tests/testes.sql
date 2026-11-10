@@ -317,7 +317,9 @@ end $$;
 
 -- ---------- 23. carteira de clientes ----------
 select pg_temp.como('00000000-0000-0000-0000-00000000000c');
-select pg_temp.ok((select count(*) from clientes where vendedor_id <> '00000000-0000-0000-0000-00000000000c') = 0, 'Ana só enxerga os clientes dela');
+select pg_temp.ok((select count(*) from clientes where vendedor_id <> '00000000-0000-0000-0000-00000000000c'
+  and not (rota_id = any (rotas_do_vendedor('00000000-0000-0000-0000-00000000000c')))) = 0, 'Ana só enxerga os clientes dela e os das rotas em que trabalha');
+select pg_temp.ok((select count(*) from clientes where id = '40000000-0000-0000-0000-000000000001') = 0, 'Ana não enxerga cliente do João fora das rotas dela');
 do $$ begin
   perform criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
     '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1}]');
@@ -369,13 +371,17 @@ select salvar_agenda('00000000-0000-0000-0000-00000000000c', '[
   {"dia":2,"turno":"manha","rota_id":"60000000-0000-0000-0000-000000000001"}]');
 select pg_temp.ok((select count(*) from agenda_visitas where vendedor_id = '00000000-0000-0000-0000-00000000000c') = 3, 'agenda da Ana salva (3 períodos)');
 select pg_temp.ok((select vendedor_id from rotas where id = '60000000-0000-0000-0000-000000000002') = '00000000-0000-0000-0000-00000000000c', 'rota sem vendedor passa a ser da Ana');
-do $$ begin
-  perform salvar_agenda('00000000-0000-0000-0000-00000000000b', '[{"dia":3,"turno":"manha","rota_id":"60000000-0000-0000-0000-000000000001"}]');
-  raise exception 'FALHOU: João pegou rota da Ana na agenda';
-exception when others then
-  if sqlerrm not like 'A rota % é do vendedor%' then raise; end if;
-  raise notice 'OK   não põe na agenda do João uma rota da Ana';
-end $$;
+-- MONTESE é da Ana; agora o João também trabalha nela (bairro compartilhado)
+select salvar_agenda('00000000-0000-0000-0000-00000000000b', '[{"dia":3,"turno":"manha","rota_id":"60000000-0000-0000-0000-000000000001"}]');
+select pg_temp.ok((select vendedor_id from rotas where id = '60000000-0000-0000-0000-000000000001') = '00000000-0000-0000-0000-00000000000c', 'rota compartilhada continua com a Ana como responsável');
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+select pg_temp.ok((select count(*) from clientes where rota_id = '60000000-0000-0000-0000-000000000001') = 3, 'João vê todos os clientes da MONTESE (bairro compartilhado)');
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000012',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1}]') ->> 'id' as pcomp \gset
+select pg_temp.ok((select vendedor_id from pedidos where id = :'pcomp') = '00000000-0000-0000-0000-00000000000b', 'João vende para cliente da MONTESE e a venda é dele');
+select pg_temp.como('00000000-0000-0000-0000-00000000000c');
+select pg_temp.ok('40000000-0000-0000-0000-000000000012'::uuid in (select clientes_do_roteiro_com_pedido(current_date)), 'para a Ana, o cliente que comprou com o João já tem pedido');
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
 select salvar_agenda('00000000-0000-0000-0000-00000000000c', '[{"dia":5,"turno":"tarde","rota_id":"60000000-0000-0000-0000-000000000001"}]');
 select pg_temp.ok((select count(*) from agenda_visitas where vendedor_id = '00000000-0000-0000-0000-00000000000c') = 1, 'salvar de novo substitui a semana inteira');
 select pg_temp.como('00000000-0000-0000-0000-00000000000b');

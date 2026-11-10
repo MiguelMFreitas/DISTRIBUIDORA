@@ -120,7 +120,7 @@ export default function Agenda() {
                             <option value="">— folga / sem rota —</option>
                             {minhas.length > 0 && <optgroup label="Rotas dele">{minhas.map((r) => <option key={r.id} value={r.id}>{r.nome} ({contagem[r.id] ?? 0} clientes)</option>)}</optgroup>}
                             {livres.length > 0 && <optgroup label="Rotas sem vendedor (passam a ser dele)">{livres.map((r) => <option key={r.id} value={r.id}>{r.nome} ({contagem[r.id] ?? 0} clientes)</option>)}</optgroup>}
-                            {deOutros.length > 0 && <optgroup label="Rotas de outros vendedores">{deOutros.map((r) => <option key={r.id} value={r.id} disabled>{r.nome} (de {nomeVend(r.vendedor_id) ?? "outro"})</option>)}</optgroup>}
+                            {deOutros.length > 0 && <optgroup label="Rotas de outros vendedores (ficam compartilhadas)">{deOutros.map((r) => <option key={r.id} value={r.id}>{r.nome} (também de {nomeVend(r.vendedor_id) ?? "outro"})</option>)}</optgroup>}
                           </select>
                         </td>
                       );
@@ -146,7 +146,7 @@ export default function Agenda() {
 
           <div className="grid gap-3 text-sm text-zinc-600 md:grid-cols-2 dark:text-zinc-400">
             <div className="cartao p-3">
-              <b className="text-zinc-800 dark:text-zinc-200">Rota de outro vendedor aparece bloqueada.</b> Para passar a rota, use “Roteiro de visitas” → Trocar vendedor. Rota sem vendedor, ao ser escolhida, passa a ser deste vendedor junto com os clientes dela.
+              <b className="text-zinc-800 dark:text-zinc-200">Bairro de outro vendedor fica compartilhado:</b> os dois veem todos os clientes dele no celular e os dois podem vender (a venda conta para quem fez). Rota sem vendedor, ao ser escolhida, passa a ter este vendedor como responsável.
             </div>
             <div className="cartao p-3">
               {semDia.length ? <><b className="text-amber-700 dark:text-amber-400">Rotas fora da agenda:</b> {semDia.map((r) => r.nome).join(", ")}. Nenhum vendedor tem dia para elas.</> : <b className="text-emerald-700 dark:text-emerald-400">Todas as rotas têm pelo menos um dia na agenda.</b>}
