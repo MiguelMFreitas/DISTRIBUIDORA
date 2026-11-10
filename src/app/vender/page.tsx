@@ -59,6 +59,7 @@ export default function Vender() {
   // clientes do roteiro que têm pedido (de qualquer um), vindos do servidor
   const [comPedidoServidor, setComPedidoServidor] = useState<{ hoje: string[]; anterior: { dia: string; ids: string[] } | null }>({ hoje: [], anterior: null });
   const [alertaOntemVisto, setAlertaOntemVisto] = useState<string | null>(null);
+  const [pedidosRoteiro, setPedidosRoteiro] = useState<{ cliente_id: string; numero: number; vendedor: string | null; meu: boolean }[]>([]);
   const [tela, setTela] = useState<Tela>("inicio");
   const [r, setR] = useState<Rascunho>(vazio);
   const [busca, setBusca] = useState("");
@@ -80,10 +81,15 @@ export default function Vender() {
     // dia anterior de trabalho (pula o domingo)
     const ant = new Date(hojeISO() + "T12:00:00"); ant.setDate(ant.getDate() - 1); if (ant.getDay() === 0) ant.setDate(ant.getDate() - 1);
     const diaAnt = ant.toISOString().slice(0, 10);
-    const [h, a] = await Promise.all([
+    const [h, a, pr] = await Promise.all([
       sb.rpc("clientes_do_roteiro_com_pedido", { p_dia: hojeISO() }),
       sb.rpc("clientes_do_roteiro_com_pedido", { p_dia: diaAnt }),
+      sb.rpc("pedidos_do_roteiro", { p_dia: hojeISO() }),
     ]);
+    if (!pr.error) {
+      setPedidosRoteiro((pr.data ?? []) as typeof pedidosRoteiro);
+      try { localStorage.setItem("vender_pedidos_roteiro", JSON.stringify({ em: hojeISO(), lista: pr.data ?? [] })); } catch {}
+    }
     const ids = (d: unknown) => ((d ?? []) as unknown[]).map((x) => (typeof x === "string" ? x : Object.values(x as object)[0] as string));
     if (!h.error && !a.error) {
       const novo = { hoje: ids(h.data), anterior: { dia: diaAnt, ids: ids(a.data) } };
@@ -112,6 +118,8 @@ export default function Vender() {
         const al = JSON.parse(localStorage.getItem("vender_alerta") ?? "null");
         if (al?.em === hojeISO()) setComPedidoServidor({ hoje: al.hoje ?? [], anterior: al.anterior ?? null });
         setAlertaOntemVisto(localStorage.getItem("vender_alerta_ontem_visto"));
+        const pr = JSON.parse(localStorage.getItem("vender_pedidos_roteiro") ?? "null");
+        if (pr?.em === hojeISO()) setPedidosRoteiro(pr.lista ?? []);
       } catch {}
       const { data: { session } } = await sb.auth.getSession();
       const uid = session?.user.id ?? (await lerCatalogo()).perfil?.id ?? null;
@@ -198,6 +206,17 @@ export default function Vender() {
     comPedidoServidor.hoje.forEach((id) => s.add(id));
     return s;
   }, [hojeServidor, fila, enviados, comPedidoServidor]);
+
+  // clientes com pedido DESTE vendedor hoje (os de outros vendedores aparecem à parte)
+  const meusHoje = useMemo(() => {
+    const s = new Set<string>();
+    (hojeServidor ?? []).filter((p) => !["cancelado", "recusado"].includes(p.status)).forEach((p) => s.add(p.cliente_id));
+    fila.forEach((p) => s.add(p.cliente_id));
+    enviados.filter((e) => e.feito_em.slice(0, 10) === hojeISO() && e.cliente_id).forEach((e) => s.add(e.cliente_id!));
+    pedidosRoteiro.filter((p) => p.meu).forEach((p) => s.add(p.cliente_id));
+    return s;
+  }, [hojeServidor, fila, enviados, pedidosRoteiro]);
+  const pedidosDeOutros = (clienteId: string) => pedidosRoteiro.filter((p) => !p.meu && p.cliente_id === clienteId);
 
   // Roteiro do dia: rotas da agenda (manhã/tarde) do dia da semana.
   // Sem agenda cadastrada, mostra todas as rotas do vendedor (como antes).
@@ -423,14 +442,20 @@ export default function Vender() {
                   {roteiroAberto && (
                     <div className="cartao divide-y divide-zinc-100 dark:divide-zinc-800">
                       {lista.map((c, i) => {
-                        const feito = comPedidoHoje.has(c.id);
+                        const feito = meusHoje.has(c.id);             // pedido deste vendedor
+                        const outros = feito ? [] : pedidosDeOutros(c.id); // pedido de outro vendedor
                         const ehProximo = proximo?.id === c.id;
                         return (
                           <div key={c.id} className={`flex items-center gap-3 p-3 ${ehProximo ? "bg-marca-50 dark:bg-marca-500/10" : ""}`}>
-                            <span className={`grid size-8 shrink-0 place-items-center rounded-lg font-display font-bold ${feito ? "bg-emerald-500 text-white" : ehProximo ? "bg-marca-500 text-white" : "bg-zinc-200 dark:bg-zinc-800"}`}>{feito ? "✓" : i + 1}</span>
+                            <span className={`grid size-8 shrink-0 place-items-center rounded-lg font-display font-bold ${feito ? "bg-emerald-500 text-white" : outros.length ? "bg-amber-400 text-amber-950" : ehProximo ? "bg-marca-500 text-white" : "bg-zinc-200 dark:bg-zinc-800"}`}>{feito ? "✓" : i + 1}</span>
                             <div className="min-w-0 flex-1">
                               <div className={`truncate font-semibold ${feito ? "text-zinc-400 line-through" : ""}`}>{c.razao_social}</div>
                               <div className="truncate text-xs text-zinc-500">{ehProximo && <b className="text-marca-600">PRÓXIMO · </b>}{[c.endereco && `${c.endereco}${c.numero ? ", " + c.numero : ""}`, c.bairro].filter(Boolean).join(" · ")}</div>
+                              {outros.length > 0 && (
+                                <div className="truncate text-xs font-semibold text-amber-700 dark:text-amber-300">
+                                  ✓ {outros.map((o) => `${(o.vendedor ?? "outro").split(" ")[0]} tirou pedido (nº ${o.numero})`).join(" · ")}
+                                </div>
+                              )}
                             </div>
                             {!feito && <button className="shrink-0 rounded-lg bg-marca-500 px-3 py-2 text-sm font-bold text-white" onClick={() => pedidoPara(c)}>Pedido</button>}
                           </div>

@@ -137,7 +137,7 @@ export default function Visitas() {
                           {ps ? (
                             <span className="shrink-0 text-right text-sm">
                               <b className="text-emerald-700 dark:text-emerald-400">✅ Comprou {fmtMoeda(ps.reduce((s, p) => s + Number(p.total), 0))}</b>
-                              <div className="text-xs text-zinc-500">pedido {ps.map((p) => p.numero).join(", ")}{ps[0].perfis && ps[0].perfis.nome !== g.rota.perfis?.nome ? ` · por ${ps[0].perfis.nome}` : ""}</div>
+                              {ps.map((p) => <div key={p.id} className="text-xs text-zinc-500">nº {p.numero} · {p.perfis?.nome ?? "—"} · {fmtMoeda(p.total)}</div>)}
                             </span>
                           ) : <b className="shrink-0 text-sm text-red-600">❌ Não comprou</b>}
                         </div>

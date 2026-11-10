@@ -391,4 +391,15 @@ do $$ begin
 exception when insufficient_privilege then raise notice 'OK   vendedor não muda a agenda';
 end $$;
 
+
+-- ---------- 25. dois vendedores, mesmo cliente, mesmo dia ----------
+select pg_temp.como('00000000-0000-0000-0000-00000000000c');
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000012',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1}]') ->> 'id' as pdois \gset
+select pg_temp.ok((select count(distinct vendedor) from pedidos_do_roteiro(current_date) where cliente_id = '40000000-0000-0000-0000-000000000012') = 2,
+  'Cliente B tem pedido do João e da Ana no mesmo dia, cada um no seu nome');
+select pg_temp.ok((select bool_or(meu) and not bool_and(meu) from pedidos_do_roteiro(current_date) where cliente_id = '40000000-0000-0000-0000-000000000012'),
+  'a Ana sabe qual pedido é dela e qual é do João');
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+
 \warn '>>> TODOS OS TESTES PASSARAM'
