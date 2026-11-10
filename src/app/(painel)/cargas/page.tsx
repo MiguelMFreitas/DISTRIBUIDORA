@@ -9,7 +9,7 @@ import { Botao, Cabecalho, Modal, Selo, Vazio, avisar } from "@/components/ui";
 import { Exige } from "@/components/perfil-contexto";
 import { STATUS_CARGA } from "@/lib/tipos";
 
-type C = { id: string; numero: number; nome: string | null; data: string; turno: "manha" | "tarde"; status: string; veiculos: { nome: string; placa: string | null } | null; motoristas: { nome: string } | null; pedidos: { total: number; peso_kg: number }[] };
+type C = { id: string; numero: number; nome: string | null; data: string; turno: "manha" | "tarde"; status: string; veiculos: { nome: string; placa: string | null } | null; motoristas: { nome: string } | null; pedidos: { total: number; peso_kg: number; clientes: { rotas: { nome: string } | null } | null }[] };
 type Op = { id: string; nome: string; placa?: string | null; capacidade_kg?: number | null };
 
 export default function Cargas() {
@@ -24,7 +24,7 @@ export default function Cargas() {
 
   const carregar = useCallback(async () => {
     const [{ data: c }, { count }] = await Promise.all([
-      sb.from("cargas").select("id, numero:numero_dia, nome, data, turno, status, veiculos(nome, placa), motoristas(nome), pedidos(total, peso_kg)").eq("data", data).order("turno").order("numero"),
+      sb.from("cargas").select("id, numero:numero_dia, nome, data, turno, status, veiculos(nome, placa), motoristas(nome), pedidos(total, peso_kg, clientes(rotas(nome)))").eq("data", data).order("turno").order("numero"),
       sb.from("pedidos").select("id", { count: "exact", head: true }).eq("status", "liberado").is("carga_id", null),
     ]);
     setCargas((c ?? []) as unknown as C[]);
@@ -61,7 +61,11 @@ export default function Cargas() {
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="font-display text-2xl font-bold uppercase">Carga {c.numero}</div>
-                    <div className="text-sm text-zinc-500">{TURNOS[c.turno]}{c.nome ? <> · <b className="text-zinc-800 dark:text-zinc-200">{c.nome}</b></> : ""}</div>
+                    <div className="text-sm text-zinc-500">{TURNOS[c.turno]}{(() => {
+                      const bairros = ([...new Set(c.pedidos.map((p) => p.clientes?.rotas?.nome).filter(Boolean))] as string[]).sort((x, y) => x.localeCompare(y, "pt-BR"));
+                      const nome = c.nome || (bairros.length ? `Rota ${bairros.join(" · ")}` : "");
+                      return nome ? <> · <b className="text-zinc-800 dark:text-zinc-200">{nome}</b></> : "";
+                    })()}</div>
                   </div>
                   <Selo cor={STATUS_CARGA[c.status][1]}>{STATUS_CARGA[c.status][0]}</Selo>
                 </div>

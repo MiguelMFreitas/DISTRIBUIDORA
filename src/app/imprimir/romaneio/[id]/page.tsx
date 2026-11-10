@@ -53,7 +53,10 @@ export default function Romaneio() {
 
   const pedidos = carga.pedidos.filter((p) => ["liberado", "carregado", "entregue"].includes(p.status));
   const clientes = new Set(pedidos.map((p) => p.clientes.id)).size;
-  const rotas = [...new Set(pedidos.map((p) => p.clientes.rotas?.nome).filter(Boolean))].join(", ") || "—";
+  const listaBairros = ([...new Set(pedidos.map((p) => p.clientes.rotas?.nome).filter(Boolean))] as string[]).sort((a, b) => alfa(a, b));
+  const rotas = listaBairros.join(", ") || "—";
+  // nome grande do romaneio: o nome que você deu à carga ou, se não deu, os bairros dos pedidos
+  const nomeRomaneio = carga.nome || (listaBairros.length ? `Rota ${listaBairros.join(" · ")}` : null);
   const peso = itens.reduce((s, i) => s + Number(i.peso_kg), 0);
   const valor = itens.reduce((s, i) => s + Number(i.valor), 0);
   const totalItens = itens.reduce((s, i) => s + Number(i.quantidade), 0);
@@ -73,7 +76,7 @@ export default function Romaneio() {
           <div>
             <div className="cond" style={{ fontSize: 14, color: "#555", fontWeight: 600 }}>{process.env.NEXT_PUBLIC_EMPRESA_NOME || "Distribuidora"}</div>
             <h1 className="cond">Romaneio de carga</h1>
-            {carga.nome && <div className="cond rom-nome">{carga.nome}</div>}
+            {nomeRomaneio && <div className="cond rom-nome">{nomeRomaneio}</div>}
           </div>
           <div style={{ textAlign: "right" }}>
             <div className="cond rom-num">Nº {carga.numero}</div>

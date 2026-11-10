@@ -129,7 +129,7 @@ export default function MontarCarga() {
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link href="/cargas" className="text-sm font-semibold text-marca-600">← Cargas</Link>
-          <h1 className="titulo text-3xl">Carga {carga.numero_dia}{carga.nome ? ` · ${carga.nome}` : ""}</h1>
+          <h1 className="titulo text-3xl">Carga {carga.numero_dia}{carga.nome ? ` · ${carga.nome}` : rotasNaCarga.length ? ` · Rota ${rotasNaCarga.join(" · ")}` : ""}</h1>
           <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-500">
             {fmtData(carga.data)} · {TURNOS[carga.turno]} <Selo cor={STATUS_CARGA[carga.status][1]}>{STATUS_CARGA[carga.status][0]}</Selo>
           </div>
