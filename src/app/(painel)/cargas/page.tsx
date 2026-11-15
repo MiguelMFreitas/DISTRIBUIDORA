@@ -63,7 +63,7 @@ export default function Cargas() {
                     <div className="font-display text-2xl font-bold uppercase">Carga {c.numero}</div>
                     <div className="text-sm text-zinc-500">{TURNOS[c.turno]}{(() => {
                       const bairros = ([...new Set(c.pedidos.map((p) => p.clientes?.rotas?.nome).filter(Boolean))] as string[]).sort((x, y) => x.localeCompare(y, "pt-BR"));
-                      const nome = c.nome || (bairros.length ? `Rota ${bairros.join(" · ")}` : "");
+                      const nome = bairros.length ? `Rota ${bairros.join(" · ")}` : "";
                       return nome ? <> · <b className="text-zinc-800 dark:text-zinc-200">{nome}</b></> : "";
                     })()}</div>
                   </div>

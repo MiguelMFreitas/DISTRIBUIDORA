@@ -45,7 +45,7 @@ export default function Romaneio() {
   }, [itens]);
 
   useEffect(() => {
-    if (carga) document.title = `Romaneio carga ${carga.numero}${carga.nome ? " - " + carga.nome : ""}`;
+    if (carga) document.title = `Romaneio carga ${carga.numero}`;
   }, [carga]);
 
   if (erro) return <p style={{ padding: 24 }}>Erro: {erro}</p>;
@@ -55,8 +55,8 @@ export default function Romaneio() {
   const clientes = new Set(pedidos.map((p) => p.clientes.id)).size;
   const listaBairros = ([...new Set(pedidos.map((p) => p.clientes.rotas?.nome).filter(Boolean))] as string[]).sort((a, b) => alfa(a, b));
   const rotas = listaBairros.join(", ") || "—";
-  // nome grande do romaneio: o nome que você deu à carga ou, se não deu, os bairros dos pedidos
-  const nomeRomaneio = carga.nome || (listaBairros.length ? `Rota ${listaBairros.join(" · ")}` : null);
+  // nome grande do romaneio: sempre os bairros dos pedidos que estão na carga
+  const nomeRomaneio = listaBairros.length ? `Rota ${listaBairros.join(" · ")}` : null;
   const peso = itens.reduce((s, i) => s + Number(i.peso_kg), 0);
   const valor = itens.reduce((s, i) => s + Number(i.valor), 0);
   const totalItens = itens.reduce((s, i) => s + Number(i.quantidade), 0);

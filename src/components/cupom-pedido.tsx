@@ -20,7 +20,7 @@ export function Cupom({ p, empresa }: { p: Ped; empresa: string }) {
       <div className="c-emp">{empresa}</div>
       <div className="c-num">PEDIDO {p.numero}</div>
       <div className="c-meta">{fmtDataHora(p.feito_em)} · Vend.: {p.perfis?.nome ?? "—"}</div>
-      {p.cargas && <div className="c-meta"><b>Carga {p.cargas.numero}{p.cargas.nome ? ` · ${p.cargas.nome}` : ""}</b>{p.cargas.motoristas ? ` · ${p.cargas.motoristas.nome}` : ""}</div>}
+      {p.cargas && <div className="c-meta"><b>Carga {p.cargas.numero}</b>{p.cargas.motoristas ? ` · ${p.cargas.motoristas.nome}` : ""}</div>}
       <div className="c-sep" />
       <div className="c-cli">{c.razao_social}</div>
       {c.nome_fantasia && <div>{c.nome_fantasia}</div>}
