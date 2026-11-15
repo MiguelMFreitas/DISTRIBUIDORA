@@ -86,14 +86,17 @@ export async function atualizarCatalogo(sb: SupabaseClient, userId: string): Pro
     sb.from("categorias").select("id, nome, ordem").order("ordem"),
     sb.from("perfis").select("*").eq("id", userId).single(),
     // rotas em que ele trabalha: as que é responsável e as da agenda dele (bairro compartilhado)
+    // (se o banco ainda não tiver a atualização 17, usa só as rotas em que ele é o responsável)
     sb.rpc("rotas_do_vendedor", { p_vendedor: userId }).then(async (r) => {
-      if (r.error) return r;
+      if (r.error) return sb.from("rotas").select("id, nome, vendedor_id").eq("vendedor_id", userId).eq("ativo", true).order("nome");
       const ids = (r.data ?? []) as string[];
       return ids.length ? sb.from("rotas").select("id, nome, vendedor_id").in("id", ids).eq("ativo", true).order("nome") : { data: [], error: null };
     }),
-    sb.from("agenda_visitas").select("vendedor_id, dia_semana, turno, rota_id").eq("vendedor_id", userId),
+    // agenda é opcional: se a tabela ainda não existir (atualização 16), segue sem agenda
+    sb.from("agenda_visitas").select("vendedor_id, dia_semana, turno, rota_id").eq("vendedor_id", userId).then((r) => (r.error ? { data: [], error: null } : r)),
   ]);
-  const erro = p.error || c.error || cat.error || pf.error || rt.error || ag.error;
+  // produtos, clientes e perfil são essenciais; o resto não impede o app de funcionar
+  const erro = p.error || c.error || cat.error || pf.error;
   if (erro) throw erro;
   const agora = new Date().toISOString();
   const d = await db();

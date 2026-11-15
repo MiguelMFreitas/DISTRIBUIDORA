@@ -7,6 +7,7 @@ import { supabaseNavegador } from "@/lib/supabase/client";
 import type { Perfil, Permissao } from "@/lib/tipos";
 import { ProvedorPerfil } from "./perfil-contexto";
 import { Avisos } from "./ui";
+import { VerificaBanco } from "./verifica-banco";
 
 type Item = { href: string; nome: string; icone: string; perm?: Permissao | Permissao[]; admin?: boolean };
 
@@ -110,7 +111,7 @@ export function PainelShell({ perfil, children }: { perfil: Perfil; children: Re
           </div>
         )}
 
-        <main className="mx-auto max-w-7xl p-4 sm:p-6 print:max-w-none print:p-0">{children}</main>
+        <main className="mx-auto max-w-7xl p-4 sm:p-6 print:max-w-none print:p-0">{perfil.admin && <VerificaBanco />}{children}</main>
       </div>
       <Avisos />
     </ProvedorPerfil>
