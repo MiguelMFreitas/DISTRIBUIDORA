@@ -7,7 +7,8 @@ export type Permissao =
   | "cargas"
   | "conferencia"
   | "cadastros"
-  | "financeiro";
+  | "financeiro"
+  | "moto";
 
 export const PERMISSOES: { chave: Permissao; nome: string; descricao: string }[] = [
   { chave: "pedidos_criar", nome: "Fazer pedidos", descricao: "Usa o app do vendedor no celular" },
@@ -19,6 +20,7 @@ export const PERMISSOES: { chave: Permissao; nome: string; descricao: string }[]
   { chave: "conferencia", nome: "Conferência", descricao: "Conferir o retorno do caminhão" },
   { chave: "cadastros", nome: "Rotas, motoristas e veículos", descricao: "Cadastros de apoio" },
   { chave: "financeiro", nome: "Financeiro", descricao: "Relatório semanal: compras, vendas, descontos e lucro" },
+  { chave: "moto", nome: "Entregas de moto", descricao: "Vê os pedidos de moto no celular e marca entregue" },
 ];
 
 export type Perfil = {
@@ -100,6 +102,15 @@ export type Pedido = {
   feito_em: string;
   criado_em: string;
   impresso_em: string | null;
+  entrega: TipoEntrega;
+  entregue_em: string | null;
+};
+
+export type TipoEntrega = "caminhao" | "moto" | "balcao";
+export const ENTREGAS: Record<TipoEntrega, { nome: string; icone: string; ajuda: string }> = {
+  caminhao: { nome: "Caminhão", icone: "🚚", ajuda: "vai numa carga" },
+  moto: { nome: "Moto", icone: "🏍️", ajuda: "entrega de moto" },
+  balcao: { nome: "Balcão", icone: "🏪", ajuda: "cliente leva na hora" },
 };
 
 export type Carga = {

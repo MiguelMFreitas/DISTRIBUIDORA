@@ -5,7 +5,7 @@ import { supabaseNavegador } from "@/lib/supabase/client";
 import { hojeISO } from "@/lib/formato";
 
 /** Versão que este site espera do banco (a última atualização em supabase/migrations) */
-export const VERSAO_ESPERADA = 21;
+export const VERSAO_ESPERADA = 22;
 const PASTA = "https://github.com/MiguelMFreitas/DISTRIBUIDORA/tree/main/supabase/migrations";
 
 type Falta = { n: string; arquivo: string; o_que: string };
@@ -37,6 +37,7 @@ export function VerificaBanco() {
         ["18", "20261111000018_pedidos_do_roteiro.sql", "dois vendedores no mesmo cliente", () => sb.rpc("pedidos_do_roteiro", { p_dia: hojeISO() })],
         ["20", "20261115000020_versao_do_banco.sql", "controle de versão do banco", () => sb.rpc("versao_banco")],
         ["21", "20261115000021_desconto_por_preco.sql", "desconto por preço e aprovação por produto", () => lerColuna("pedido_itens", "precisa_aprovacao")],
+        ["22", "20261116000022_moto_balcao_sem_desconto.sql", "entrega de moto, balcão e vendedor sem desconto", () => lerColuna("pedidos", "entrega")],
       ];
       const res = await Promise.all(testes.map(async ([n, arquivo, o_que, f]) => {
         const { error } = await f();

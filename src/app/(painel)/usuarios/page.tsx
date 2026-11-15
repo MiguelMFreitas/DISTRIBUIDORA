@@ -12,6 +12,7 @@ const MODELOS: { nome: string; permissoes: Permissao[]; desconto: number }[] = [
   { nome: "Vendedor", permissoes: ["pedidos_criar"], desconto: 5 },
   { nome: "Escritório", permissoes: ["pedidos_ver_todos", "clientes", "cargas"], desconto: 0 },
   { nome: "Conferente", permissoes: ["conferencia"], desconto: 0 },
+  { nome: "Motoboy", permissoes: ["moto"], desconto: 0 },
 ];
 
 export default function Usuarios() {
@@ -72,7 +73,7 @@ export default function Usuarios() {
       <div className="cartao overflow-x-auto">
         <table className="w-full text-[15px]">
           <thead className="border-b border-zinc-200 text-left text-xs uppercase text-zinc-500 dark:border-zinc-800">
-            <tr><th className="px-3 py-2">Nome</th><th className="px-3 py-2">Usuário</th><th className="px-3 py-2">Acesso</th><th className="px-3 py-2 text-right">Desconto máx.</th><th /></tr>
+            <tr><th className="px-3 py-2">Nome</th><th className="px-3 py-2">Usuário</th><th className="px-3 py-2">Acesso</th><th /></tr>
           </thead>
           <tbody>
             {lista.map((u) => (
@@ -86,7 +87,6 @@ export default function Usuarios() {
                     </div>
                   )}
                 </td>
-                <td className="px-3 py-2 text-right">{u.admin ? "livre" : `${Number(u.desconto_max).toLocaleString("pt-BR")}%`}</td>
                 <td className="px-2 text-right"><Botao variante="fantasma" tamanho="p" onClick={() => setForm({ ...u, senha: "" })}>Editar</Botao></td>
               </tr>
             ))}
@@ -140,11 +140,7 @@ export default function Usuarios() {
                     ))}
                   </div>
                 </div>
-                <div className="max-w-xs">
-                  <label className="rotulo">Desconto máximo que pode dar (%)</label>
-                  <input className="campo" type="number" min={0} max={100} step={0.5} value={form.desconto_max ?? 0} onChange={(e) => setForm({ ...form, desconto_max: Number(e.target.value) })} />
-                  <p className="mt-1 text-xs text-zinc-500">Acima disso, o pedido chega como “aguardando aprovação”.</p>
-                </div>
+                <p className="text-xs text-zinc-500">Vendedor não dá desconto: se mudar o preço de qualquer produto (ou vender sem estoque), o produto chega como “aguardando aprovação”.</p>
               </>
             )}
 

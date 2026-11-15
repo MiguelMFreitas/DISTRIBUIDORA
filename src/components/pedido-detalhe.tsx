@@ -3,18 +3,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabaseNavegador } from "@/lib/supabase/client";
 import { erroMsg, fmtDataHora, fmtMoeda, fmtPeso, fmtQtd } from "@/lib/formato";
-import { STATUS_PEDIDO, type StatusPedido } from "@/lib/tipos";
+import { ENTREGAS, STATUS_PEDIDO, type StatusPedido, type TipoEntrega } from "@/lib/tipos";
 import { Botao, BotaoConfirmar, Modal, Selo, avisar } from "./ui";
 import { usePerfil, usePode } from "./perfil-contexto";
 import { CampoPreco } from "./campo-preco";
 import { ConfirmarSenha } from "./confirmar-senha";
 
-type Item = { id: string; quantidade: number; preco_tabela: number; desconto_pct: number; preco_unit: number; total: number; precisa_aprovacao: boolean; produtos: { nome: string; unidade: string; permite_meia: boolean; preco_minimo: number | null } };
+type Item = { id: string; quantidade: number; preco_tabela: number; desconto_pct: number; preco_unit: number; total: number; precisa_aprovacao: boolean; motivo_aprovacao: string | null; produtos: { nome: string; unidade: string; permite_meia: boolean; preco_minimo: number | null } };
 
 /** abaixo do preço mínimo do cadastro do produto */
 const abaixoCad = (i: Item, preco = Number(i.preco_unit)) => i.produtos.preco_minimo != null && preco < Number(i.produtos.preco_minimo) - 0.001;
 type Det = {
-  id: string; numero: number; status: StatusPedido; total: number; peso_kg: number; observacao: string | null; feito_em: string; carga_id: string | null;
+  id: string; numero: number; status: StatusPedido; total: number; peso_kg: number; observacao: string | null; feito_em: string; carga_id: string | null; entrega: TipoEntrega;
   clientes: { razao_social: string; nome_fantasia: string | null; endereco: string | null; numero: string | null; bairro: string | null; cidade: string | null; telefone: string | null };
   perfis: { nome: string; desconto_max: number } | null;
   pedido_itens: Item[];
@@ -33,7 +33,7 @@ export function PedidoDetalhe({ id, aoFechar, aoMudar }: { id: string | null; ao
   const ler = useCallback(async () => {
     if (!id) return;
     const { data, error } = await sb.from("pedidos")
-      .select("id, numero, status, total, peso_kg, observacao, feito_em, carga_id, clientes(razao_social, nome_fantasia, endereco, numero, bairro, cidade, telefone), perfis!pedidos_vendedor_id_fkey(nome, desconto_max), pedido_itens(id, quantidade, preco_tabela, desconto_pct, preco_unit, total, precisa_aprovacao, produtos(nome, unidade, permite_meia, preco_minimo))")
+      .select("id, numero, status, total, peso_kg, observacao, feito_em, carga_id, entrega, clientes(razao_social, nome_fantasia, endereco, numero, bairro, cidade, telefone), perfis!pedidos_vendedor_id_fkey(nome, desconto_max), pedido_itens(id, quantidade, preco_tabela, desconto_pct, preco_unit, total, precisa_aprovacao, motivo_aprovacao, produtos(nome, unidade, permite_meia, preco_minimo))")
       .eq("id", id).single();
     if (error) avisar(erroMsg(error), "erro");
     setP(data as unknown as Det);
@@ -84,6 +84,18 @@ export function PedidoDetalhe({ id, aoFechar, aoMudar }: { id: string | null; ao
     aoFechar();
   }
 
+  async function mudarEntrega(e: TipoEntrega) {
+    if (!p) return;
+    setOcupado(true);
+    const { data, error } = await sb.rpc("mudar_entrega", { p_pedido: p.id, p_entrega: e });
+    setOcupado(false);
+    if (error) return avisar(erroMsg(error), "erro");
+    avisar(data === "entregue" ? "Balcão: pedido marcado como entregue" : `Entrega: ${ENTREGAS[e].nome}`);
+    aoMudar();
+    ler();
+  }
+  const podeMudarEntrega = p && !p.carga_id && ["aguardando_aprovacao", "liberado"].includes(p.status) && (pode("pedidos_ver_todos") || pode("cargas"));
+
   const podeCancelar = p && ["aguardando_aprovacao", "liberado"].includes(p.status) && pode("pedidos_ver_todos");
 
   return (
@@ -107,11 +119,20 @@ export function PedidoDetalhe({ id, aoFechar, aoMudar }: { id: string | null; ao
             <div className="text-right text-sm">
               <Selo cor={STATUS_PEDIDO[p.status].cor}>{STATUS_PEDIDO[p.status].nome}</Selo>
               <div className="mt-1 text-zinc-500">{p.perfis?.nome ?? "—"} · {fmtDataHora(p.feito_em)}</div>
+              <div className="mt-1 font-semibold">{ENTREGAS[p.entrega ?? "caminhao"].icone} {ENTREGAS[p.entrega ?? "caminhao"].nome}</div>
             </div>
           </div>
+          {podeMudarEntrega && (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-zinc-500">Mudar entrega:</span>
+              {(Object.keys(ENTREGAS) as TipoEntrega[]).filter((k) => k !== (p.entrega ?? "caminhao")).map((k) => (
+                <Botao key={k} tamanho="p" variante="secundario" disabled={ocupado} onClick={() => mudarEntrega(k)}>{ENTREGAS[k].icone} {ENTREGAS[k].nome}</Botao>
+              ))}
+            </div>
+          )}
           {p.status === "aguardando_aprovacao" && (
             <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
-              O vendedor vendeu abaixo do preço mínimo dele (limite {Number(p.perfis?.desconto_max ?? 0).toLocaleString("pt-BR")}% ou o mínimo do produto). Em cada produto destacado você pode <b>aprovar</b>, <b>editar</b> (quantidade e preço) ou <b>recusar</b> — recusar tira só aquele produto e o resto do pedido segue normal.
+              O vendedor mudou o preço ou vendeu sem estoque. Em cada produto destacado você pode <b>aprovar</b>, <b>editar</b> (quantidade e preço) ou <b>recusar</b> — recusar tira só aquele produto e o resto do pedido segue normal.
             </p>
           )}
           <table className="w-full text-[15px]">
@@ -126,7 +147,7 @@ export function PedidoDetalhe({ id, aoFechar, aoMudar }: { id: string | null; ao
                   <tr key={i.id} className={`border-b border-zinc-100 align-top dark:border-zinc-800 ${pendente ? "bg-amber-50 dark:bg-amber-500/10" : ""}`}>
                     <td className="py-2 pl-1">
                       {i.produtos.nome}
-                      {pendente && <div className="text-xs font-bold text-amber-700 dark:text-amber-300">aguardando aprovação</div>}
+                      {pendente && <div className="text-xs font-bold text-amber-700 dark:text-amber-300">aguardando aprovação{i.motivo_aprovacao ? `: ${i.motivo_aprovacao}` : ""}</div>}
                       {abaixoCad(i) && <div className="text-xs font-bold text-red-600">abaixo do mínimo ({fmtMoeda(i.produtos.preco_minimo!)})</div>}
                     </td>
                     <td className="py-2 text-right whitespace-nowrap">

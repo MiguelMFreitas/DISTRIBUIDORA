@@ -14,6 +14,8 @@ type Item = { href: string; nome: string; icone: string; perm?: Permissao | Perm
 const MENU: Item[] = [
   { href: "/painel", nome: "Início", icone: "🏠" },
   { href: "/pedidos/novo", nome: "Novo pedido", icone: "➕", perm: ["pedidos_criar", "pedidos_ver_todos"] },
+  { href: "/pedidos/novo?entrega=balcao", nome: "Venda no balcão", icone: "🏪", perm: "pedidos_ver_todos" },
+  { href: "/moto", nome: "Entregas de moto", icone: "🏍️", perm: ["moto", "pedidos_ver_todos"] },
   { href: "/pedidos", nome: "Pedidos", icone: "📋", perm: "pedidos_ver_todos" },
   { href: "/imprimir/automatica", nome: "Impressão automática", icone: "🖨️", perm: ["pedidos_ver_todos", "cargas"] },
   { href: "/cargas", nome: "Cargas e romaneio", icone: "🚚", perm: "cargas" },

@@ -190,8 +190,15 @@ export default function Vender() {
   }, [cat, busca]);
 
   const total = totalItens(r.itens);
-  const abaixo = r.itens.filter((i) => i.quantidade > 0 && abaixoDoMinimo(i, descMax));
-  const precisaAprovar = abaixo.length > 0 && !perfil?.admin;
+  const admin = !!perfil?.admin;
+  const dispItem = (i: ItemPedido) => { const p = cat?.produtos.find((x) => x.id === i.produto_id); return p ? disponivel(p) : i.quantidade; };
+  // vendedor não dá desconto: qualquer mudança no preço espera aprovação; sem estoque também
+  const mudouPreco = (i: ItemPedido) => Math.abs(unitario(i) - i.preco) > 0.001;
+  const semEstoque = (i: ItemPedido) => i.quantidade > dispItem(i);
+  const aguarda = (i: ItemPedido) => !admin && i.quantidade > 0 && (mudouPreco(i) || semEstoque(i));
+  // administrador: abaixo do preço mínimo do produto pede a senha
+  const abaixo = admin ? r.itens.filter((i) => i.quantidade > 0 && abaixoDoMinimo(i, descMax)) : [];
+  const precisaAprovar = r.itens.some(aguarda);
 
   /* ---------- ações ---------- */
   function novoPedido() {
@@ -266,13 +273,15 @@ export default function Vender() {
   function adicionar(p: Produto) {
     const disp = disponivel(p);
     const atual = r.itens.find((i) => i.produto_id === p.id);
-    if (disp <= 0) return avisar("Produto sem estoque.", "erro");
+    if (disp <= 0 && admin) return avisar("Produto sem estoque.", "erro");
+    const teto = admin ? disp : 9999;
     if (atual) {
-      setR((x) => ({ ...x, itens: x.itens.map((i) => (i.produto_id === p.id ? { ...i, quantidade: Math.min(disp, i.quantidade + 1) } : i)) }));
+      setR((x) => ({ ...x, itens: x.itens.map((i) => (i.produto_id === p.id ? { ...i, quantidade: Math.min(teto, i.quantidade + 1) } : i)) }));
     } else {
-      setR((x) => ({ ...x, itens: [...x.itens, { produto_id: p.id, nome: p.nome, unidade: p.unidade, permite_meia: p.permite_meia, preco: Number(p.preco), quantidade: Math.min(1, disp), desconto_pct: 0, preco_unit: Number(p.preco), preco_minimo: p.preco_minimo == null ? null : Number(p.preco_minimo) }] }));
+      setR((x) => ({ ...x, itens: [...x.itens, { produto_id: p.id, nome: p.nome, unidade: p.unidade, permite_meia: p.permite_meia, preco: Number(p.preco), quantidade: admin ? Math.min(1, disp) : 1, desconto_pct: 0, preco_unit: Number(p.preco), preco_minimo: p.preco_minimo == null ? null : Number(p.preco_minimo) }] }));
     }
-    if (disp <= p.estoque_minimo) avisar(`Atenção: só tem ${fmtQtd(disp)} de ${p.nome}`);
+    if (disp <= 0) avisar(`${p.nome} está sem estoque: vai esperar aprovação do escritório`);
+    else if (disp <= p.estoque_minimo) avisar(`Atenção: só tem ${fmtQtd(disp)} de ${p.nome}`);
     setBusca("");
     buscaRef.current?.focus();
   }
@@ -537,7 +546,7 @@ export default function Vender() {
                   const disp = disponivel(p);
                   const no = r.itens.find((i) => i.produto_id === p.id);
                   return (
-                    <button key={p.id} disabled={disp <= 0} onClick={() => adicionar(p)} className="flex w-full items-center gap-3 p-3 text-left active:bg-zinc-50 disabled:opacity-50 dark:active:bg-zinc-800">
+                    <button key={p.id} disabled={disp <= 0 && admin} onClick={() => adicionar(p)} className="flex w-full items-center gap-3 p-3 text-left active:bg-zinc-50 disabled:opacity-50 dark:active:bg-zinc-800">
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold">{p.nome}</div>
                         <div className="flex items-center gap-2 text-sm">
@@ -563,7 +572,8 @@ export default function Vender() {
                   const disp = p ? disponivel(p) : i.quantidade;
                   const unit = unitario(i);
                   const pct = pctDesconto(i.preco, unit);
-                  const baixo = abaixoDoMinimo(i, descMax);
+                  const baixo = admin ? abaixoDoMinimo(i, descMax) : mudouPreco(i);
+                  const falta = !admin && i.quantidade > disp;
                   return (
                     <div key={i.produto_id} className="cartao p-3">
                       <div className="flex items-start justify-between gap-2">
@@ -572,9 +582,9 @@ export default function Vender() {
                       </div>
                       <div className="mt-2 flex items-center justify-between gap-2">
                         <div>
-                          <Passo valor={i.quantidade} meia={i.permite_meia} max={disp} aoMudar={(n) => mudarItem(i.produto_id, { quantidade: n })} />
+                          <Passo valor={i.quantidade} meia={i.permite_meia} max={admin ? disp : 9999} aoMudar={(n) => mudarItem(i.produto_id, { quantidade: n })} />
                           <div className="mt-1 text-xs text-zinc-500">
-                            {UNIDADES[i.unidade as keyof typeof UNIDADES]?.nome ?? i.unidade}{i.permite_meia ? " (aceita ½)" : ""} · máx. {fmtQtd(disp)}
+                            {UNIDADES[i.unidade as keyof typeof UNIDADES]?.nome ?? i.unidade}{i.permite_meia ? " (aceita ½)" : ""} · {disp > 0 ? `estoque ${fmtQtd(disp)}` : "sem estoque"}
                           </div>
                         </div>
                         <div className="text-right">
@@ -584,18 +594,20 @@ export default function Vender() {
                               className={`h-9 w-20 rounded-lg border px-1 text-center font-semibold ${baixo ? "border-red-500 bg-red-50 text-red-800 dark:bg-red-500/10 dark:text-red-200" : pct > 0 ? "border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-200" : "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900"}`}
                               aoMudar={(n) => mudarItem(i.produto_id, { preco_unit: n, desconto_pct: pctDesconto(i.preco, n) })} />
                           </label>
-                          <div className="mt-1 text-xs text-zinc-500">Tabela {fmtMoeda(i.preco)}{pct > 0 && <b className={baixo ? "text-red-600" : "text-amber-600"}> · −{fmtQtd(pct)}%</b>}</div>
+                          <div className="mt-1 text-xs text-zinc-500">Tabela {fmtMoeda(i.preco)}{pct > 0 && <b className={baixo ? "text-red-600" : "text-amber-600"}> · −{fmtQtd(pct)}%</b>}{unit > i.preco && <b className="text-red-600"> · acima da tabela</b>}</div>
                           <div className="text-lg font-bold">{fmtMoeda(unit * i.quantidade)}</div>
                         </div>
                       </div>
-                      {baixo && <div className="mt-2 rounded-lg bg-red-50 p-2 text-sm font-semibold text-red-700 dark:bg-red-500/10 dark:text-red-200">Seu preço mínimo é {fmtMoeda(precoMinimo(i.preco, descMax, i.preco_minimo))}.{perfil?.admin ? " Para vender abaixo, você vai precisar pôr a sua senha." : " Abaixo disso o produto vai para aprovação do escritório."}</div>}
+                      {baixo && (admin
+                        ? <div className="mt-2 rounded-lg bg-red-50 p-2 text-sm font-semibold text-red-700 dark:bg-red-500/10 dark:text-red-200">Preço mínimo é {fmtMoeda(precoMinimo(i.preco, descMax, i.preco_minimo))}. Para vender abaixo, você vai precisar pôr a sua senha.</div>
+                        : <div className="mt-2 rounded-lg bg-amber-50 p-2 text-sm font-semibold text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">Preço mudado (tabela {fmtMoeda(i.preco)}): este produto vai esperar aprovação do escritório. <button className="underline" onClick={() => mudarItem(i.produto_id, { preco_unit: i.preco, desconto_pct: 0 })}>Voltar ao preço da tabela</button></div>)}
+                      {falta && <div className="mt-2 rounded-lg bg-amber-50 p-2 text-sm font-semibold text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">Sem estoque {disp > 0 ? `(tem ${fmtQtd(disp)})` : ""}: este produto vai esperar aprovação do escritório.</div>}
                       {i.quantidade === 0 && <div className="mt-1 text-xs font-semibold text-red-600">Sem quantidade: não vai no pedido</div>}
                     </div>
                   );
                 })}
                 {perfil?.admin && abaixo.length > 0 && <p className="rounded-xl bg-red-100 p-3 text-sm text-red-900 dark:bg-red-500/20 dark:text-red-100">⚠️ Tem produto abaixo do preço mínimo. Ao enviar, o sistema vai pedir a sua senha.</p>}
-                {perfil?.admin && abaixo.length > 0 && <p className="rounded-xl bg-red-100 p-3 text-sm text-red-900 dark:bg-red-500/20 dark:text-red-100">⚠️ Tem produto abaixo do preço mínimo. Ao enviar, o sistema vai pedir a sua senha.</p>}
-            {precisaAprovar && <p className="rounded-xl bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">Tem produto abaixo do seu preço mínimo: esse produto vai precisar de aprovação do escritório (o resto do pedido segue normal).</p>}
+                {precisaAprovar && <p className="rounded-xl bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">Tem produto com preço mudado ou sem estoque: só esse produto vai esperar a aprovação do escritório (o resto do pedido segue normal).</p>}
               </div>
             )}
           </div>
@@ -615,7 +627,7 @@ export default function Vender() {
                 const pct = pctDesconto(i.preco, unit);
                 return (
                   <div key={i.produto_id} className="flex items-center justify-between gap-2 p-3">
-                    <div className="min-w-0"><span className="font-bold">{fmtQtd(i.quantidade)} {i.unidade}</span> · {i.nome}{pct > 0 && <span className={`ml-1 text-xs font-bold ${abaixoDoMinimo(i, descMax) ? "text-red-600" : "text-amber-600"}`}>{fmtMoeda(unit)} (−{fmtQtd(pct)}%)</span>}</div>
+                    <div className="min-w-0"><span className="font-bold">{fmtQtd(i.quantidade)} {i.unidade}</span> · {i.nome}{mudouPreco(i) && <span className="ml-1 text-xs font-bold text-amber-600">{fmtMoeda(unit)} (tabela {fmtMoeda(i.preco)})</span>}{aguarda(i) && <span className="ml-1 text-xs font-bold text-amber-700">· aguarda aprovação</span>}</div>
                     <div className="font-semibold">{fmtMoeda(unit * i.quantidade)}</div>
                   </div>
                 );
@@ -625,7 +637,8 @@ export default function Vender() {
               <label className="rotulo">Observação</label>
               <textarea className="campo min-h-20" placeholder="Ex.: entregar depois das 14h" value={r.observacao} onChange={(e) => setR((x) => ({ ...x, observacao: e.target.value }))} />
             </div>
-            {precisaAprovar && <p className="rounded-xl bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">Tem produto abaixo do seu preço mínimo. O pedido chega como “aguardando aprovação” e o escritório aprova, edita ou tira só esse produto.</p>}
+            {perfil?.admin && abaixo.length > 0 && <p className="rounded-xl bg-red-100 p-3 text-sm text-red-900 dark:bg-red-500/20 dark:text-red-100">⚠️ Tem produto abaixo do preço mínimo. Ao enviar, o sistema vai pedir a sua senha.</p>}
+            {precisaAprovar && <p className="rounded-xl bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">Tem produto com preço mudado ou sem estoque. O pedido chega como “aguardando aprovação” e o escritório aprova, edita ou tira só esse produto.</p>}
             {!online && <p className="rounded-xl bg-zinc-200 p-3 text-sm dark:bg-zinc-800">Sem internet agora: o pedido fica guardado no celular e é enviado sozinho quando a internet voltar.</p>}
           </div>
         )}

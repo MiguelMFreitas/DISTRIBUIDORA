@@ -30,11 +30,11 @@ set role authenticated;
 -- ---------- 1. pedido normal ----------
 select pg_temp.como('00000000-0000-0000-0000-00000000000b');
 select criar_pedido('50000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001',
-  '[{"produto_id":"30000000-0000-0000-0000-000000000001","quantidade":2.5,"desconto_pct":5},
+  '[{"produto_id":"30000000-0000-0000-0000-000000000001","quantidade":2.5},
     {"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":3}]') ->> 'status' as st \gset
-select pg_temp.ok(:'st' = 'liberado', 'pedido com desconto dentro do limite fica liberado');
+select pg_temp.ok(:'st' = 'liberado', 'pedido no preço de tabela fica liberado');
 select pg_temp.ok((select estoque from produtos where id='30000000-0000-0000-0000-000000000001') = 47.5, 'estoque baixou 2,5 (meia caixa)');
-select pg_temp.ok((select total from pedidos where client_id='50000000-0000-0000-0000-000000000001') = 2.5*95 + 3*40, 'total calculado com desconto');
+select pg_temp.ok((select total from pedidos where client_id='50000000-0000-0000-0000-000000000001') = 2.5*100 + 3*40, 'total calculado');
 
 -- ---------- 2. reenvio (offline) não duplica ----------
 select pg_temp.ok((criar_pedido('50000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001',
@@ -44,18 +44,31 @@ select pg_temp.ok((select estoque from produtos where id='30000000-0000-0000-000
 -- ---------- 3. desconto acima do limite ----------
 select criar_pedido('50000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000002',
   '[{"produto_id":"30000000-0000-0000-0000-000000000003","quantidade":1,"desconto_pct":10}]') ->> 'status' as st \gset
-select pg_temp.ok(:'st' = 'aguardando_aprovacao', 'desconto acima do limite aguarda aprovação');
+select pg_temp.ok(:'st' = 'aguardando_aprovacao', 'vendedor com desconto aguarda aprovação');
 
 -- ---------- 4. falta de estoque ----------
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');   -- administrador: bloqueia
 do $$ begin
   perform criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
     '[{"produto_id":"30000000-0000-0000-0000-000000000003","quantidade":99}]');
   raise exception 'FALHOU: deveria bloquear sem estoque';
 exception when others then
   if sqlerrm <> 'ESTOQUE_INSUFICIENTE' then raise; end if;
-  raise notice 'OK   pedido sem estoque é bloqueado';
+  raise notice 'OK   pedido do administrador sem estoque é bloqueado';
 end $$;
 select pg_temp.ok((select estoque from produtos where id='30000000-0000-0000-0000-000000000003') = 4, 'pedido bloqueado não mexe no estoque');
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');   -- vendedor: vende, mas espera aprovação
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000003","quantidade":6}]') ->> 'id' as psem \gset
+select pg_temp.ok((select status from pedidos where id = :'psem') = 'aguardando_aprovacao'
+              and (select motivo_aprovacao from pedido_itens where pedido_id = :'psem') = 'sem estoque', 'vendedor vende sem estoque, aguarda aprovação (motivo: sem estoque)');
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select recusar_pedido(:'psem');
+select pg_temp.ok((select estoque from produtos where id='30000000-0000-0000-0000-000000000003') = 4, 'recusar o pedido sem estoque devolve o estoque');
+reset role;   -- limpa para não atrapalhar os próximos testes
+delete from estoque_movimentos where pedido_id = :'psem'; delete from pedido_itens where pedido_id = :'psem'; delete from pedidos where id = :'psem';
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
 
 -- ---------- 5. meia caixa só onde é permitido ----------
 do $$ begin
@@ -428,11 +441,11 @@ select pg_temp.como('00000000-0000-0000-0000-00000000000b');   -- João, limite 
 -- cerveja (tabela 100) a R$ 80 = 20% (acima do limite); refri (tabela 40) a R$ 39 = 2,5% (dentro)
 select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
   '[{"produto_id":"30000000-0000-0000-0000-000000000001","quantidade":2,"preco_unit":80},
-    {"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":3,"preco_unit":39}]') ->> 'id' as pp \gset
+    {"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":3,"preco_unit":40}]') ->> 'id' as pp \gset
 select pg_temp.ok((select status from pedidos where id = :'pp') = 'aguardando_aprovacao', 'preço abaixo do mínimo deixa o pedido aguardando');
 select pg_temp.ok((select desconto_pct from pedido_itens where pedido_id = :'pp' and produto_id = '30000000-0000-0000-0000-000000000001') = 20, 'a % é calculada pelo preço digitado (20%)');
 select pg_temp.ok((select precisa_aprovacao from pedido_itens where pedido_id = :'pp' and produto_id = '30000000-0000-0000-0000-000000000001')
-              and not (select precisa_aprovacao from pedido_itens where pedido_id = :'pp' and produto_id = '30000000-0000-0000-0000-000000000002'), 'só o produto acima do limite precisa de aprovação');
+              and not (select precisa_aprovacao from pedido_itens where pedido_id = :'pp' and produto_id = '30000000-0000-0000-0000-000000000002'), 'só o produto com preço mudado precisa de aprovação');
 do $$ begin
   perform aprovar_item((select id from pedido_itens where precisa_aprovacao limit 1));
   raise exception 'FALHOU: vendedor aprovou produto';
@@ -441,7 +454,7 @@ end $$;
 select pg_temp.como('00000000-0000-0000-0000-00000000000a');
 select recusar_item((select id from pedido_itens where pedido_id = :'pp' and produto_id = '30000000-0000-0000-0000-000000000001'));
 select pg_temp.ok((select status from pedidos where id = :'pp') = 'liberado', 'recusar o único produto pendente libera o pedido');
-select pg_temp.ok((select count(*) from pedido_itens where pedido_id = :'pp') = 1 and (select total from pedidos where id = :'pp') = 117, 'recusar apaga só aquele produto e recalcula o total (3 × 39)');
+select pg_temp.ok((select count(*) from pedido_itens where pedido_id = :'pp') = 1 and (select total from pedidos where id = :'pp') = 120, 'recusar apaga só aquele produto e recalcula o total (3 × 40)');
 select pg_temp.ok((select estoque from produtos where id = '30000000-0000-0000-0000-000000000001') = 100, 'estoque do produto recusado voltou');
 -- dois produtos pendentes: edita um, aprova o outro
 select pg_temp.como('00000000-0000-0000-0000-00000000000b');
@@ -460,7 +473,7 @@ set role authenticated;
 select pg_temp.como('00000000-0000-0000-0000-00000000000b');
 select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
   '[{"produto_id":"30000000-0000-0000-0000-000000000001","quantidade":1,"preco_unit":97}]') ->> 'status' = 'aguardando_aprovacao' as r \gset
-select pg_temp.ok(:'r', 'abaixo do preço mínimo do cadastro vai para aprovação (3% < limite 5%)');
+select pg_temp.ok(:'r', 'vendedor com qualquer preço diferente da tabela vai para aprovação');
 select pg_temp.como('00000000-0000-0000-0000-00000000000a');
 select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
   '[{"produto_id":"30000000-0000-0000-0000-000000000001","quantidade":1,"preco_unit":50}]') ->> 'status' = 'liberado' as r \gset
@@ -468,5 +481,41 @@ select pg_temp.ok(:'r', 'administrador vende abaixo do mínimo sem aprovação (
 reset role;
 update produtos set preco_minimo = null where id = '30000000-0000-0000-0000-000000000001';
 set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1,"preco_unit":41}]') ->> 'status' = 'aguardando_aprovacao' as r \gset
+select pg_temp.ok(:'r', 'vendedor aumentando o preço também espera aprovação');
+
+-- ---------- 28. entrega de moto e balcão ----------
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1}]', null, null, null, 'balcao') ->> 'id' as pbal \gset
+select pg_temp.ok((select status = 'entregue' and entregue_em is not null from pedidos where id = :'pbal'), 'pedido de balcão já nasce entregue');
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1}]', null, null, null, 'moto') ->> 'id' as pmoto \gset
+select pg_temp.ok((select status = 'liberado' and entrega = 'moto' from pedidos where id = :'pmoto'), 'pedido de moto fica esperando a entrega');
+select entregar_moto(:'pmoto');
+select pg_temp.ok((select status from pedidos where id = :'pmoto') = 'entregue', 'moto: marcar entregue');
+select entregar_moto(:'pmoto', false);
+select pg_temp.ok((select status from pedidos where id = :'pmoto') = 'liberado', 'moto: desfazer entregue');
+select pg_temp.ok(mudar_entrega(:'pmoto', 'balcao') = 'entregue', 'mudar entrega para balcão entrega na hora');
+-- vendedor faz pedido de balcão com preço mudado: só entrega depois de aprovar
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1,"preco_unit":35}]', null, null, null, 'balcao') ->> 'id' as pb2 \gset
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select aprovar_item((select id from pedido_itens where pedido_id = :'pb2'));
+select pg_temp.ok((select status from pedidos where id = :'pb2') = 'entregue', 'balcão aprovado fica entregue');
+select pg_temp.ok(cliente_balcao() = cliente_balcao(), 'cliente CONSUMIDOR BALCÃO é criado uma vez só');
+-- usuário só com a permissão "moto" vê os pedidos de moto (e não os outros)
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1}]', null, null, null, 'moto');
+reset role;
+update perfis set permissoes = '{moto}' where id = '00000000-0000-0000-0000-00000000000c';
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000c');
+select pg_temp.ok((select count(*) from pedidos where entrega = 'moto') = 1 and (select count(*) from pedidos where entrega <> 'moto' and vendedor_id <> auth.uid()) = 0, 'entregador de moto vê só os pedidos de moto');
+select entregar_moto((select id from pedidos where entrega = 'moto' and status = 'liberado'));
+select pg_temp.ok((select count(*) from pedidos where entrega = 'moto' and status = 'entregue') = 1, 'entregador marca entregue');
 
 \warn '>>> TODOS OS TESTES PASSARAM'

@@ -40,6 +40,7 @@ export default function Painel() {
   const [baixos, setBaixos] = useState<Baixo[]>([]);
   const [aberto, setAberto] = useState<string | null>(null);
   const [descontos, setDescontos] = useState<Desconto[]>([]);
+  const [moto, setMoto] = useState(0);
   const vistos = useRef<Set<string> | null>(null);
 
   const verPedidos = pode("pedidos_ver_todos") || pode("cargas");
@@ -50,11 +51,13 @@ export default function Painel() {
     if (verPedidos) {
       const [{ data: ph }, { count }, { data: ag }] = await Promise.all([
         sb.from("pedidos").select("total").gte("feito_em", inicio).not("status", "in", "(cancelado,recusado)"),
-        sb.from("pedidos").select("id", { count: "exact", head: true }).eq("status", "liberado").is("carga_id", null),
+        sb.from("pedidos").select("id", { count: "exact", head: true }).eq("status", "liberado").is("carga_id", null).eq("entrega", "caminhao"),
         sb.from("pedidos").select("id, numero, total, feito_em, clientes(razao_social), perfis!pedidos_vendedor_id_fkey(nome)").eq("status", "aguardando_aprovacao").order("numero"),
       ]);
       setHoje({ qtd: ph?.length ?? 0, valor: (ph ?? []).reduce((s: number, p: { total: number }) => s + Number(p.total), 0) });
       setSemCarga(count ?? 0);
+      const { count: cm } = await sb.from("pedidos").select("id", { count: "exact", head: true }).eq("status", "liberado").eq("entrega", "moto");
+      setMoto(cm ?? 0);
       setAguardando((ag ?? []) as unknown as Aguardando[]);
       // todos os descontos de hoje (avisa quando chega um novo)
       const { data: ds } = await sb.from("pedido_itens")
@@ -88,10 +91,11 @@ export default function Painel() {
       <Cabecalho titulo={`Olá, ${eu.nome.split(" ")[0]}`} sub={new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })} />
 
       {verPedidos && (
-        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-5">
           <Numero titulo="Pedidos hoje" valor={hoje.qtd} sub={fmtMoeda(hoje.valor)} href="/pedidos" />
           <Numero titulo="Sem carga" valor={semCarga} sub="liberados, esperando carga" href="/cargas" />
-          <Numero titulo="Aguardando aprovação" valor={aguardando.length} sub="produto abaixo do preço mínimo" destaque={aguardando.length > 0} />
+          <Numero titulo="🏍️ Moto" valor={moto} sub="para entregar de moto" href="/moto" destaque={moto > 0} />
+          <Numero titulo="Aguardando aprovação" valor={aguardando.length} sub="preço mudado ou sem estoque" destaque={aguardando.length > 0} />
           <Numero titulo="Estoque baixo" valor={baixos.length} sub="produtos no mínimo ou zerados" href="/estoque" destaque={baixos.some((b) => b.estoque <= 0)} />
         </div>
       )}

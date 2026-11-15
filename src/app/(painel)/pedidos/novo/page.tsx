@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabaseNavegador } from "@/lib/supabase/client";
 import { combina, erroMsg, fmtMoeda, fmtPeso, fmtQtd } from "@/lib/formato";
-import type { Cliente, Perfil, Produto } from "@/lib/tipos";
+import type { Cliente, Perfil, Produto, TipoEntrega } from "@/lib/tipos";
+import { ENTREGAS } from "@/lib/tipos";
 import { Botao, Cabecalho, avisar } from "@/components/ui";
 import { BuscaProduto } from "@/components/busca-produto";
 import { usePerfil } from "@/components/perfil-contexto";
@@ -64,6 +65,12 @@ export default function NovoPedido() {
   const [clientId, setClientId] = useState(novoId);
   const [salvando, setSalvando] = useState(false);
   const [ultimo, setUltimo] = useState<{ id: string; numero: number; status: string } | null>(null);
+  const [entrega, setEntrega] = useState<TipoEntrega>("caminhao");
+  // menu "Venda no balcão" abre com ?entrega=balcao
+  useEffect(() => {
+    const e = new URLSearchParams(window.location.search).get("entrega");
+    if (e === "balcao" || e === "moto" || e === "caminhao") setEntrega(e);
+  }, []);
 
   const carregar = useCallback(async () => {
     const [{ data: c }, { data: p }, { data: v }] = await Promise.all([
@@ -92,26 +99,37 @@ export default function NovoPedido() {
   const opcoesVendedor = vendedores.slice().sort((a, b) =>
     Number(b.id === eu.id) - Number(a.id === eu.id) || Number(b.id === dono?.id) - Number(a.id === dono?.id) || a.nome.localeCompare(b.nome, "pt-BR"));
 
+  // administrador não vende sem estoque (lança a entrada antes); os outros vendem, mas espera aprovação
+  const teto = (p: Produto) => (eu.admin ? Number(p.estoque) : 9999);
   function adicionar(p: Produto) {
-    if (p.estoque <= 0) return avisar(`${p.nome} está sem estoque.`, "erro");
-    setLinhas((l) => (l.some((x) => x.p.id === p.id) ? l.map((x) => (x.p.id === p.id ? { ...x, qtd: Math.min(p.estoque, x.qtd + 1) } : x)) : [...l, { p, qtd: 1, preco: Number(p.preco) }]));
-    if (p.estoque <= p.estoque_minimo) avisar(`Atenção: só tem ${fmtQtd(p.estoque)} de ${p.nome}`);
+    if (p.estoque <= 0 && eu.admin) return avisar(`${p.nome} está sem estoque. Lance a entrada no Estoque antes.`, "erro");
+    setLinhas((l) => (l.some((x) => x.p.id === p.id) ? l.map((x) => (x.p.id === p.id ? { ...x, qtd: Math.min(teto(p), x.qtd + 1) } : x)) : [...l, { p, qtd: 1, preco: Number(p.preco) }]));
+    if (p.estoque <= 0) avisar(`${p.nome} está sem estoque: vai esperar aprovação`);
+    else if (p.estoque <= p.estoque_minimo) avisar(`Atenção: só tem ${fmtQtd(p.estoque)} de ${p.nome}`);
+  }
+  async function consumidorBalcao() {
+    const { data, error } = await sb.rpc("cliente_balcao");
+    if (error) return avisar(erroMsg(error), "erro");
+    const { data: c } = await sb.from("clientes").select("*").eq("id", data as string).single();
+    if (c) escolherCliente(c as Cliente);
   }
   const mudar = (id: string, campos: Partial<Linha>) => setLinhas((l) => l.map((x) => (x.p.id === id ? { ...x, ...campos } : x)));
 
   function ajustarQtd(l: Linha, texto: string) {
     let n = Number(texto.replace(",", ".")) || 0;
     n = l.p.permite_meia ? Math.round(n * 2) / 2 : Math.round(n);
-    mudar(l.p.id, { qtd: Math.max(0, Math.min(l.p.estoque, n)) });
+    mudar(l.p.id, { qtd: Math.max(0, Math.min(teto(l.p), n)) });
   }
 
   const validas = linhas.filter((l) => l.qtd > 0);
   const total = validas.reduce((s, l) => s + unit(l) * l.qtd, 0);
   const peso = validas.reduce((s, l) => s + l.p.peso_kg * l.qtd, 0);
+  const mudouPreco = (l: Linha) => Math.abs(unit(l) - Number(l.p.preco)) > 0.001;
+  // administrador: abaixo do mínimo do produto (pede senha); outros: qualquer mudança de preço (aguarda aprovação)
+  const baixo = (l: Linha) => (eu.admin ? unit(l) < minimo(l) - 0.001 : mudouPreco(l));
   const minimo = (l: Linha) => precoMinimo(Number(l.p.preco), descMax, l.p.preco_minimo);
-  const baixo = (l: Linha) => unit(l) < minimo(l) - 0.001;
-  const abaixo = validas.filter(baixo);
-  const acima = abaixo.length > 0 && !eu.admin;
+  const abaixo = eu.admin ? validas.filter(baixo) : [];
+  const acima = !eu.admin && validas.some((l) => mudouPreco(l) || l.qtd > Number(l.p.estoque));
   const [pedirSenha, setPedirSenha] = useState<false | "salvar" | "imprimir">(false);
 
   async function salvar(imprimir: boolean, senhaConferida = false) {
@@ -126,6 +144,7 @@ export default function NovoPedido() {
       p_client_id: clientId, p_cliente_id: cliente.id,
       p_itens: validas.map((l) => ({ produto_id: l.p.id, quantidade: l.qtd, preco_unit: unit(l), desconto_pct: pctDesconto(Number(l.p.preco), unit(l)) })),
       p_observacao: obs || null, p_feito_em: null, p_vendedor_id: donoFixo ? cliente!.vendedor_id : vendedor === eu.id ? null : vendedor,
+      p_entrega: entrega,
     });
     setSalvando(false);
     if (error) {
@@ -139,7 +158,7 @@ export default function NovoPedido() {
     }
     const r = data as { id: string; numero: number; status: string };
     setUltimo(r);
-    avisar(r.status === "aguardando_aprovacao" ? `Pedido nº ${r.numero} salvo, aguardando aprovação` : `Pedido nº ${r.numero} salvo`);
+    avisar(r.status === "aguardando_aprovacao" ? `Pedido nº ${r.numero} salvo, aguardando aprovação` : entrega === "balcao" ? `Venda nº ${r.numero} finalizada` : entrega === "moto" ? `Pedido nº ${r.numero} salvo: já aparece em Entregas de moto` : `Pedido nº ${r.numero} salvo`);
     if (imprimir) abrirImpressaoPedidos([r.id]);
     setCliente(null); setLinhas([]); setObs(""); setVendedor(eu.id); setClientId(novoId());
     carregar();
@@ -149,7 +168,7 @@ export default function NovoPedido() {
 
   return (
     <>
-      <Cabecalho titulo="Novo pedido" sub="Para pedidos que chegam por telefone, WhatsApp ou no balcão.">
+      <Cabecalho titulo={entrega === "balcao" ? "Venda no balcão" : "Novo pedido"} sub={entrega === "balcao" ? "O cliente leva na hora: o pedido já fica como entregue." : "Para pedidos que chegam por telefone, WhatsApp ou no balcão."}>
         <Link href="/pedidos"><Botao variante="secundario">← Pedidos</Botao></Link>
       </Cabecalho>
 
@@ -162,6 +181,19 @@ export default function NovoPedido() {
 
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
+          <section className="cartao p-4">
+            <h2 className="titulo mb-2 text-lg">Entrega</h2>
+            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Tipo de entrega">
+              {(Object.keys(ENTREGAS) as TipoEntrega[]).map((k) => (
+                <button key={k} type="button" role="radio" aria-checked={entrega === k} onClick={() => setEntrega(k)}
+                  className={`rounded-xl border-2 p-3 text-center transition ${entrega === k ? "border-marca-500 bg-marca-50 dark:bg-marca-500/10" : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-700"}`}>
+                  <div className="text-3xl">{ENTREGAS[k].icone}</div>
+                  <div className="font-bold">{ENTREGAS[k].nome}</div>
+                  <div className="text-xs text-zinc-500">{ENTREGAS[k].ajuda}</div>
+                </button>
+              ))}
+            </div>
+          </section>
           <section className="cartao space-y-3 p-4">
             <h2 className="titulo text-lg">Cliente</h2>
             {cliente ? (
@@ -172,7 +204,10 @@ export default function NovoPedido() {
                 </div>
                 <Botao variante="secundario" tamanho="p" onClick={() => setCliente(null)}>Trocar</Botao>
               </div>
-            ) : <BuscaCliente clientes={clientes} aoEscolher={escolherCliente} />}
+            ) : <>
+              <BuscaCliente clientes={clientes} aoEscolher={escolherCliente} />
+              {entrega === "balcao" && podeVer && <Botao variante="secundario" onClick={consumidorBalcao}>🏪 Consumidor do balcão (sem cadastro)</Botao>}
+            </>}
             {podeVer && (
               <div className="max-w-sm">
                 <label className="rotulo" htmlFor="vend">Vendedor do pedido</label>
@@ -214,7 +249,8 @@ export default function NovoPedido() {
                           <CampoPreco valor={unit(l)} aoMudar={(n) => mudar(l.p.id, { preco: n })} aria-label={`Preço de ${l.p.nome}`}
                             className={`campo w-24! text-right ${baixo(l) ? "border-red-500 bg-red-50 dark:bg-red-500/10" : unit(l) < Number(l.p.preco) ? "border-amber-500 bg-amber-50 dark:bg-amber-500/10" : ""}`} />
                           {pctDesconto(Number(l.p.preco), unit(l)) > 0 && <div className={`text-xs font-semibold ${baixo(l) ? "text-red-600" : "text-amber-600"}`}>−{fmtQtd(pctDesconto(Number(l.p.preco), unit(l)))}%</div>}
-                          {baixo(l) && <div className="text-xs font-semibold text-red-600">Preço mínimo é {fmtMoeda(minimo(l))}</div>}
+                          {baixo(l) && <div className="text-xs font-semibold text-red-600">{eu.admin ? `Preço mínimo é ${fmtMoeda(minimo(l))}` : "Preço mudado: aguarda aprovação"}</div>}
+                          {!eu.admin && l.qtd > Number(l.p.estoque) && <div className="text-xs font-semibold text-amber-600">Sem estoque: aguarda aprovação</div>}
                         </td>
                         <td className="py-2 text-right font-semibold whitespace-nowrap">{fmtMoeda(unit(l) * l.qtd)}</td>
                         <td className="py-2 pl-1 text-right"><Botao variante="fantasma" tamanho="p" onClick={() => setLinhas((x) => x.filter((y) => y.p.id !== l.p.id))} aria-label="Remover">✕</Botao></td>
@@ -239,10 +275,16 @@ export default function NovoPedido() {
             <div className="flex justify-between text-sm"><span className="text-zinc-500">Itens</span><span>{fmtQtd(validas.reduce((s, l) => s + l.qtd, 0))}</span></div>
             <div className="flex justify-between text-sm"><span className="text-zinc-500">Peso</span><span>{fmtPeso(peso)}</span></div>
             <div className="flex items-baseline justify-between border-t border-zinc-200 pt-3 dark:border-zinc-800"><span className="font-semibold">Total</span><span className="font-display text-3xl font-bold">{fmtMoeda(total)}</span></div>
-            {acima && <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">Tem produto abaixo do seu preço mínimo: esse produto vai aguardar aprovação.</p>}
+            <div className="flex justify-between text-sm"><span className="text-zinc-500">Entrega</span><span className="font-semibold">{ENTREGAS[entrega].icone} {ENTREGAS[entrega].nome}</span></div>
+            {acima && <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">Tem produto com preço mudado ou sem estoque: esse produto vai aguardar aprovação.</p>}
             {eu.admin && abaixo.length > 0 && <p className="rounded-lg bg-red-50 p-2 text-sm font-semibold text-red-800 dark:bg-red-500/10 dark:text-red-200">⚠️ Tem produto abaixo do preço mínimo. Ao salvar, o sistema vai pedir a sua senha.</p>}
-            <Botao className="w-full" tamanho="g" onClick={() => salvar(false)} carregando={salvando}>Salvar pedido</Botao>
-            <Botao className="w-full" variante="secundario" onClick={() => salvar(true)} disabled={salvando}>Salvar e imprimir</Botao>
+            {entrega === "balcao" ? <>
+              <Botao className="w-full" tamanho="g" onClick={() => salvar(true)} carregando={salvando}>Finalizar e imprimir</Botao>
+              <Botao className="w-full" variante="secundario" onClick={() => salvar(false)} disabled={salvando}>Finalizar sem imprimir</Botao>
+            </> : <>
+              <Botao className="w-full" tamanho="g" onClick={() => salvar(false)} carregando={salvando}>Salvar pedido</Botao>
+              <Botao className="w-full" variante="secundario" onClick={() => salvar(true)} disabled={salvando}>Salvar e imprimir</Botao>
+            </>}
           </div>
         </aside>
       </div>

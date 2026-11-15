@@ -11,7 +11,7 @@ import { PedidoDetalhe } from "@/components/pedido-detalhe";
 import { abrirImpressaoPedidos } from "@/lib/impressao";
 
 type Linha = {
-  id: string; numero: number; status: StatusPedido; total: number; peso_kg: number; feito_em: string; impresso_em: string | null; carga_id: string | null;
+  id: string; numero: number; status: StatusPedido; total: number; peso_kg: number; feito_em: string; impresso_em: string | null; carga_id: string | null; entrega: "caminhao" | "moto" | "balcao";
   clientes: { razao_social: string; nome_fantasia: string | null; bairro: string | null; rota_id: string | null };
   perfis: { nome: string } | null;
   cargas: { numero: number } | null;
@@ -34,7 +34,7 @@ export default function Pedidos() {
   const carregar = useCallback(async () => {
     setCarregando(true);
     const { data, error } = await sb.from("pedidos")
-      .select("id, numero, status, total, peso_kg, feito_em, impresso_em, carga_id, clientes(razao_social, nome_fantasia, bairro, rota_id), perfis!pedidos_vendedor_id_fkey(nome), cargas(numero:numero_dia)")
+      .select("id, numero, status, total, peso_kg, feito_em, impresso_em, carga_id, entrega, clientes(razao_social, nome_fantasia, bairro, rota_id), perfis!pedidos_vendedor_id_fkey(nome), cargas(numero:numero_dia)")
       .gte("feito_em", new Date(de + "T00:00:00").toISOString())
       .lt("feito_em", new Date(new Date(ate + "T00:00:00").getTime() + 86400000).toISOString())
       .order("numero", { ascending: false })
@@ -120,7 +120,7 @@ export default function Pedidos() {
                   <td className="px-2 py-2 text-sm">{(l.clientes.rota_id && nomeRota[l.clientes.rota_id]) || "—"}</td>
                   <td className="px-2 py-2 text-sm">{l.perfis?.nome ?? "—"}</td>
                   <td className="px-2 py-2 text-sm whitespace-nowrap">{fmtDataHora(l.feito_em)}</td>
-                  <td className="px-2 py-2"><Selo cor={STATUS_PEDIDO[l.status].cor}>{STATUS_PEDIDO[l.status].nome}</Selo>{l.cargas && <div className="mt-0.5 text-xs text-zinc-500">Carga {l.cargas.numero}</div>}</td>
+                  <td className="px-2 py-2"><Selo cor={STATUS_PEDIDO[l.status].cor}>{STATUS_PEDIDO[l.status].nome}</Selo>{l.cargas && <div className="mt-0.5 text-xs text-zinc-500">Carga {l.cargas.numero}</div>}{l.entrega && l.entrega !== "caminhao" && <div className="mt-0.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300">{l.entrega === "moto" ? "🏍️ Moto" : "🏪 Balcão"}</div>}</td>
                   <td className="px-2 py-2 text-right font-semibold whitespace-nowrap">{fmtMoeda(l.total)}</td>
                 </tr>
               ))}

@@ -38,7 +38,7 @@ export default function MontarCarga() {
       sb.from("cargas").select("*").eq("id", id).single(),
       sb.from("pedidos")
         .select("id, numero, total, peso_kg, carga_id, status, clientes(razao_social, nome_fantasia, bairro, cidade, rota_id), perfis!pedidos_vendedor_id_fkey(nome)")
-        .or(`carga_id.eq.${id},and(status.eq.liberado,carga_id.is.null)`)
+        .or(`carga_id.eq.${id},and(status.eq.liberado,carga_id.is.null,entrega.eq.caminhao)`)
         .order("numero"),
     ]);
     setCarga(c as Carga);
