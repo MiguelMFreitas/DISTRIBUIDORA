@@ -419,4 +419,54 @@ update rotas set nome = 'MONTESE' where id = '60000000-0000-0000-0000-0000000000
 set role authenticated;
 select pg_temp.ok(true, 'renomear bairro com cliente antigo sem vendedor não trava');
 
+
+-- ---------- 27. desconto por preço e aprovação produto por produto ----------
+reset role;
+update produtos set estoque = 100 where id in ('30000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000002');
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');   -- João, limite 5%
+-- cerveja (tabela 100) a R$ 80 = 20% (acima do limite); refri (tabela 40) a R$ 39 = 2,5% (dentro)
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000001","quantidade":2,"preco_unit":80},
+    {"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":3,"preco_unit":39}]') ->> 'id' as pp \gset
+select pg_temp.ok((select status from pedidos where id = :'pp') = 'aguardando_aprovacao', 'preço abaixo do mínimo deixa o pedido aguardando');
+select pg_temp.ok((select desconto_pct from pedido_itens where pedido_id = :'pp' and produto_id = '30000000-0000-0000-0000-000000000001') = 20, 'a % é calculada pelo preço digitado (20%)');
+select pg_temp.ok((select precisa_aprovacao from pedido_itens where pedido_id = :'pp' and produto_id = '30000000-0000-0000-0000-000000000001')
+              and not (select precisa_aprovacao from pedido_itens where pedido_id = :'pp' and produto_id = '30000000-0000-0000-0000-000000000002'), 'só o produto acima do limite precisa de aprovação');
+do $$ begin
+  perform aprovar_item((select id from pedido_itens where precisa_aprovacao limit 1));
+  raise exception 'FALHOU: vendedor aprovou produto';
+exception when insufficient_privilege then raise notice 'OK   vendedor não aprova produto';
+end $$;
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select recusar_item((select id from pedido_itens where pedido_id = :'pp' and produto_id = '30000000-0000-0000-0000-000000000001'));
+select pg_temp.ok((select status from pedidos where id = :'pp') = 'liberado', 'recusar o único produto pendente libera o pedido');
+select pg_temp.ok((select count(*) from pedido_itens where pedido_id = :'pp') = 1 and (select total from pedidos where id = :'pp') = 117, 'recusar apaga só aquele produto e recalcula o total (3 × 39)');
+select pg_temp.ok((select estoque from produtos where id = '30000000-0000-0000-0000-000000000001') = 100, 'estoque do produto recusado voltou');
+-- dois produtos pendentes: edita um, aprova o outro
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000001","quantidade":2,"preco_unit":70},
+    {"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":3,"preco_unit":30}]') ->> 'id' as pq \gset
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select pg_temp.ok(editar_item((select id from pedido_itens where pedido_id = :'pq' and produto_id = '30000000-0000-0000-0000-000000000001'), 3, 96) = 'aguardando_aprovacao', 'editar um produto: pedido segue aguardando o outro');
+select pg_temp.ok((select estoque from produtos where id = '30000000-0000-0000-0000-000000000001') = 97, 'editar a quantidade ajusta o estoque (2 → 3)');
+select pg_temp.ok(aprovar_item((select id from pedido_itens where pedido_id = :'pq' and produto_id = '30000000-0000-0000-0000-000000000002')) = 'liberado', 'aprovar o último pendente libera o pedido');
+select pg_temp.ok((select total from pedidos where id = :'pq') = 3 * 96 + 3 * 30, 'total do pedido com o produto editado');
+-- preço mínimo do cadastro do produto vale mesmo dentro da % do vendedor
+reset role;
+update produtos set preco_minimo = 99 where id = '30000000-0000-0000-0000-000000000001';
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000001","quantidade":1,"preco_unit":97}]') ->> 'status' = 'aguardando_aprovacao' as r \gset
+select pg_temp.ok(:'r', 'abaixo do preço mínimo do cadastro vai para aprovação (3% < limite 5%)');
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000001","quantidade":1,"preco_unit":50}]') ->> 'status' = 'liberado' as r \gset
+select pg_temp.ok(:'r', 'administrador vende abaixo do mínimo sem aprovação (o app pede a senha)');
+reset role;
+update produtos set preco_minimo = null where id = '30000000-0000-0000-0000-000000000001';
+set role authenticated;
+
 \warn '>>> TODOS OS TESTES PASSARAM'

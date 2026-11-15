@@ -42,6 +42,7 @@ export type Produto = {
   unidade: Unidade;
   permite_meia: boolean;
   preco: number;
+  preco_minimo: number | null;
   custo: number;
   peso_kg: number;
   estoque: number;

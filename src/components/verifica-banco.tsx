@@ -5,7 +5,7 @@ import { supabaseNavegador } from "@/lib/supabase/client";
 import { hojeISO } from "@/lib/formato";
 
 /** Versão que este site espera do banco (a última atualização em supabase/migrations) */
-export const VERSAO_ESPERADA = 20;
+export const VERSAO_ESPERADA = 21;
 const PASTA = "https://github.com/MiguelMFreitas/DISTRIBUIDORA/tree/main/supabase/migrations";
 
 type Falta = { n: string; arquivo: string; o_que: string };
@@ -36,6 +36,7 @@ export function VerificaBanco() {
         ["17", "20261111000017_bairro_compartilhado.sql", "bairro compartilhado", () => sb.rpc("rotas_do_vendedor", { p_vendedor: "00000000-0000-0000-0000-000000000000" })],
         ["18", "20261111000018_pedidos_do_roteiro.sql", "dois vendedores no mesmo cliente", () => sb.rpc("pedidos_do_roteiro", { p_dia: hojeISO() })],
         ["20", "20261115000020_versao_do_banco.sql", "controle de versão do banco", () => sb.rpc("versao_banco")],
+        ["21", "20261115000021_desconto_por_preco.sql", "desconto por preço e aprovação por produto", () => lerColuna("pedido_itens", "precisa_aprovacao")],
       ];
       const res = await Promise.all(testes.map(async ([n, arquivo, o_que, f]) => {
         const { error } = await f();
@@ -48,7 +49,7 @@ export function VerificaBanco() {
       // a partir da 20, compara a versão gravada no banco
       if (!lista.some((f) => f.n === "20")) {
         const { data } = await sb.rpc("versao_banco");
-        if (typeof data === "number" && data < VERSAO_ESPERADA) lista.push({ n: String(VERSAO_ESPERADA), arquivo: "", o_que: `atualizações depois da ${data}` });
+        if (typeof data === "number" && data < VERSAO_ESPERADA && !lista.length) lista.push({ n: String(VERSAO_ESPERADA), arquivo: "", o_que: `atualizações depois da ${data}` });
       }
       // a 13, 14, 15 e 19 vêm junto: se faltam as de depois, provavelmente faltam elas também
       if (lista.some((f) => Number(f.n) >= 17)) {

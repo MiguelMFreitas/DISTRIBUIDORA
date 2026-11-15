@@ -19,6 +19,10 @@ export type ItemPedido = {
   preco: number;
   quantidade: number;
   desconto_pct: number;
+  /** preço de venda digitado pelo vendedor (pedidos antigos da fila podem não ter) */
+  preco_unit?: number;
+  /** preço mínimo do cadastro do produto */
+  preco_minimo?: number | null;
 };
 
 export type PedidoFila = {
@@ -127,8 +131,21 @@ async function guardarEnviado(e: PedidoEnviado) {
   todos.sort((a, b) => b.feito_em.localeCompare(a.feito_em)).slice(100).forEach((x) => d.delete("enviados", x.client_id));
 }
 
+const r2 = (n: number) => Math.round(n * 100) / 100;
+/** preço de venda de um item */
+export const unitario = (i: Pick<ItemPedido, "preco" | "desconto_pct" | "preco_unit">) =>
+  i.preco_unit != null && Number.isFinite(i.preco_unit) ? r2(i.preco_unit) : r2(i.preco * (1 - i.desconto_pct / 100));
+/** % de desconto que o preço de venda dá em relação à tabela */
+export const pctDesconto = (tabela: number, venda: number) =>
+  tabela > 0 ? Math.min(100, Math.max(0, r2((1 - venda / tabela) * 100))) : 0;
+/** menor preço sem aprovação: o maior entre o mínimo do cadastro e o limite de % (administrador: descMax 100) */
+export const precoMinimo = (tabela: number, descMax: number, minimoCadastro?: number | null) =>
+  Math.max(Number(minimoCadastro ?? 0) || 0, r2(tabela * (1 - descMax / 100)));
+export const abaixoDoMinimo = (i: Pick<ItemPedido, "preco" | "desconto_pct" | "preco_unit" | "preco_minimo">, descMax: number) =>
+  unitario(i) < precoMinimo(i.preco, descMax, i.preco_minimo) - 0.001;
+
 export const totalItens = (itens: ItemPedido[]) =>
-  itens.reduce((s, i) => s + Math.round(i.preco * (1 - i.desconto_pct / 100) * 100) / 100 * i.quantidade, 0);
+  itens.reduce((s, i) => s + unitario(i) * i.quantidade, 0);
 
 function ehErroDeRede(e: { message?: string; code?: string } | null) {
   if (typeof navigator !== "undefined" && !navigator.onLine) return true;
@@ -154,7 +171,7 @@ export async function sincronizar(sb: SupabaseClient): Promise<{ enviados: numbe
       const { data, error } = await sb.rpc("criar_pedido", {
         p_client_id: p.client_id,
         p_cliente_id: p.cliente_id,
-        p_itens: p.itens.map((i) => ({ produto_id: i.produto_id, quantidade: i.quantidade, desconto_pct: i.desconto_pct })),
+        p_itens: p.itens.map((i) => ({ produto_id: i.produto_id, quantidade: i.quantidade, preco_unit: unitario(i), desconto_pct: pctDesconto(i.preco, unitario(i)) })),
         p_observacao: p.observacao || null,
         p_feito_em: p.feito_em,
       });

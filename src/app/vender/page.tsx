@@ -1,5 +1,7 @@
 "use client";
 
+import { CampoPreco } from "@/components/campo-preco";
+import { ConfirmarSenha } from "@/components/confirmar-senha";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabaseNavegador } from "@/lib/supabase/client";
@@ -7,7 +9,7 @@ import { alfa, combina, fmtDataHora, fmtMoeda, fmtQtd, hojeISO, UNIDADES } from 
 import type { Cliente, Produto } from "@/lib/tipos";
 import { STATUS_PEDIDO, type StatusPedido } from "@/lib/tipos";
 import {
-  atualizarCatalogo, lerCatalogo, lerEnviados, lerFila, novoId, salvarNaFila, sincronizar, tirarDaFila, totalItens,
+  atualizarCatalogo, lerCatalogo, lerEnviados, lerFila, novoId, salvarNaFila, sincronizar, tirarDaFila, totalItens, unitario, pctDesconto, precoMinimo, abaixoDoMinimo,
   type Catalogo, type ItemPedido, type PedidoEnviado, type PedidoFila,
 } from "@/lib/offline";
 import { Avisos, avisar } from "@/components/ui";
@@ -64,6 +66,7 @@ export default function Vender() {
   const [r, setR] = useState<Rascunho>(vazio);
   const [busca, setBusca] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [pedirSenha, setPedirSenha] = useState(false);
   const [resultado, setResultado] = useState<{ tipo: "ok" | "fila" | "aprovar"; numero?: number } | null>(null);
   const [precisaLogin, setPrecisaLogin] = useState(false);
   const buscaRef = useRef<HTMLInputElement>(null);
@@ -187,7 +190,8 @@ export default function Vender() {
   }, [cat, busca]);
 
   const total = totalItens(r.itens);
-  const precisaAprovar = r.itens.some((i) => i.desconto_pct > descMax);
+  const abaixo = r.itens.filter((i) => i.quantidade > 0 && abaixoDoMinimo(i, descMax));
+  const precisaAprovar = abaixo.length > 0 && !perfil?.admin;
 
   /* ---------- ações ---------- */
   function novoPedido() {
@@ -266,7 +270,7 @@ export default function Vender() {
     if (atual) {
       setR((x) => ({ ...x, itens: x.itens.map((i) => (i.produto_id === p.id ? { ...i, quantidade: Math.min(disp, i.quantidade + 1) } : i)) }));
     } else {
-      setR((x) => ({ ...x, itens: [...x.itens, { produto_id: p.id, nome: p.nome, unidade: p.unidade, permite_meia: p.permite_meia, preco: Number(p.preco), quantidade: Math.min(1, disp), desconto_pct: 0 }] }));
+      setR((x) => ({ ...x, itens: [...x.itens, { produto_id: p.id, nome: p.nome, unidade: p.unidade, permite_meia: p.permite_meia, preco: Number(p.preco), quantidade: Math.min(1, disp), desconto_pct: 0, preco_unit: Number(p.preco), preco_minimo: p.preco_minimo == null ? null : Number(p.preco_minimo) }] }));
     }
     if (disp <= p.estoque_minimo) avisar(`Atenção: só tem ${fmtQtd(disp)} de ${p.nome}`);
     setBusca("");
@@ -277,10 +281,13 @@ export default function Vender() {
     setR((x) => ({ ...x, itens: x.itens.map((i) => (i.produto_id === id ? { ...i, ...campos } : i)) }));
   const tirarItem = (id: string) => setR((x) => ({ ...x, itens: x.itens.filter((i) => i.produto_id !== id) }));
 
-  async function enviar() {
+  async function enviar(senhaConferida = false) {
     if (!r.cliente || !r.itens.length) return;
     const itens = r.itens.filter((i) => i.quantidade > 0);
     if (!itens.length) return avisar("Coloque a quantidade dos produtos.", "erro");
+    // administrador vendendo abaixo do preço mínimo: confirma com a senha
+    if (perfil?.admin && abaixo.length > 0 && !senhaConferida) return setPedirSenha(true);
+    setPedirSenha(false);
     setEnviando(true);
     const pedido: PedidoFila = {
       client_id: r.client_id, cliente_id: r.cliente.id, cliente_nome: r.cliente.razao_social,
@@ -554,7 +561,9 @@ export default function Vender() {
                 }).map((i) => {
                   const p = cat.produtos.find((x) => x.id === i.produto_id);
                   const disp = p ? disponivel(p) : i.quantidade;
-                  const unit = Math.round(i.preco * (1 - i.desconto_pct / 100) * 100) / 100;
+                  const unit = unitario(i);
+                  const pct = pctDesconto(i.preco, unit);
+                  const baixo = abaixoDoMinimo(i, descMax);
                   return (
                     <div key={i.produto_id} className="cartao p-3">
                       <div className="flex items-start justify-between gap-2">
@@ -570,20 +579,23 @@ export default function Vender() {
                         </div>
                         <div className="text-right">
                           <label className="flex items-center justify-end gap-1 text-sm text-zinc-500">
-                            Desc.
-                            <input className={`h-9 w-14 rounded-lg border px-1 text-center font-semibold ${i.desconto_pct > descMax ? "border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-500/10" : "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900"}`}
-                              inputMode="decimal" value={i.desconto_pct || ""} placeholder="0"
-                              onChange={(e) => { const n = Math.min(100, Math.max(0, Number(e.target.value.replace(",", ".")) || 0)); mudarItem(i.produto_id, { desconto_pct: n }); }} />%
+                            R$
+                            <CampoPreco valor={unit} aria-label={`Preço de ${i.nome}`}
+                              className={`h-9 w-20 rounded-lg border px-1 text-center font-semibold ${baixo ? "border-red-500 bg-red-50 text-red-800 dark:bg-red-500/10 dark:text-red-200" : pct > 0 ? "border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-200" : "border-zinc-300 bg-white dark:border-zinc-700 dark:bg-zinc-900"}`}
+                              aoMudar={(n) => mudarItem(i.produto_id, { preco_unit: n, desconto_pct: pctDesconto(i.preco, n) })} />
                           </label>
-                          <div className="mt-1 text-sm">{fmtMoeda(unit)} × {fmtQtd(i.quantidade)}</div>
+                          <div className="mt-1 text-xs text-zinc-500">Tabela {fmtMoeda(i.preco)}{pct > 0 && <b className={baixo ? "text-red-600" : "text-amber-600"}> · −{fmtQtd(pct)}%</b>}</div>
                           <div className="text-lg font-bold">{fmtMoeda(unit * i.quantidade)}</div>
                         </div>
                       </div>
+                      {baixo && <div className="mt-2 rounded-lg bg-red-50 p-2 text-sm font-semibold text-red-700 dark:bg-red-500/10 dark:text-red-200">Seu preço mínimo é {fmtMoeda(precoMinimo(i.preco, descMax, i.preco_minimo))}.{perfil?.admin ? " Para vender abaixo, você vai precisar pôr a sua senha." : " Abaixo disso o produto vai para aprovação do escritório."}</div>}
                       {i.quantidade === 0 && <div className="mt-1 text-xs font-semibold text-red-600">Sem quantidade: não vai no pedido</div>}
                     </div>
                   );
                 })}
-                {precisaAprovar && <p className="rounded-xl bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">Desconto acima de {fmtQtd(descMax)}%: o pedido vai precisar de aprovação do escritório.</p>}
+                {perfil?.admin && abaixo.length > 0 && <p className="rounded-xl bg-red-100 p-3 text-sm text-red-900 dark:bg-red-500/20 dark:text-red-100">⚠️ Tem produto abaixo do preço mínimo. Ao enviar, o sistema vai pedir a sua senha.</p>}
+                {perfil?.admin && abaixo.length > 0 && <p className="rounded-xl bg-red-100 p-3 text-sm text-red-900 dark:bg-red-500/20 dark:text-red-100">⚠️ Tem produto abaixo do preço mínimo. Ao enviar, o sistema vai pedir a sua senha.</p>}
+            {precisaAprovar && <p className="rounded-xl bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">Tem produto abaixo do seu preço mínimo: esse produto vai precisar de aprovação do escritório (o resto do pedido segue normal).</p>}
               </div>
             )}
           </div>
@@ -599,10 +611,11 @@ export default function Vender() {
             </div>
             <div className="cartao divide-y divide-zinc-100 dark:divide-zinc-800">
               {r.itens.filter((i) => i.quantidade > 0).map((i) => {
-                const unit = Math.round(i.preco * (1 - i.desconto_pct / 100) * 100) / 100;
+                const unit = unitario(i);
+                const pct = pctDesconto(i.preco, unit);
                 return (
                   <div key={i.produto_id} className="flex items-center justify-between gap-2 p-3">
-                    <div className="min-w-0"><span className="font-bold">{fmtQtd(i.quantidade)} {i.unidade}</span> · {i.nome}{i.desconto_pct > 0 && <span className={`ml-1 text-xs font-bold ${i.desconto_pct > descMax ? "text-amber-600" : "text-zinc-500"}`}>−{fmtQtd(i.desconto_pct)}%</span>}</div>
+                    <div className="min-w-0"><span className="font-bold">{fmtQtd(i.quantidade)} {i.unidade}</span> · {i.nome}{pct > 0 && <span className={`ml-1 text-xs font-bold ${abaixoDoMinimo(i, descMax) ? "text-red-600" : "text-amber-600"}`}>{fmtMoeda(unit)} (−{fmtQtd(pct)}%)</span>}</div>
                     <div className="font-semibold">{fmtMoeda(unit * i.quantidade)}</div>
                   </div>
                 );
@@ -612,7 +625,7 @@ export default function Vender() {
               <label className="rotulo">Observação</label>
               <textarea className="campo min-h-20" placeholder="Ex.: entregar depois das 14h" value={r.observacao} onChange={(e) => setR((x) => ({ ...x, observacao: e.target.value }))} />
             </div>
-            {precisaAprovar && <p className="rounded-xl bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">Este pedido tem desconto acima do seu limite ({fmtQtd(descMax)}%). Ele vai chegar como “aguardando aprovação”.</p>}
+            {precisaAprovar && <p className="rounded-xl bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-500/20 dark:text-amber-100">Tem produto abaixo do seu preço mínimo. O pedido chega como “aguardando aprovação” e o escritório aprova, edita ou tira só esse produto.</p>}
             {!online && <p className="rounded-xl bg-zinc-200 p-3 text-sm dark:bg-zinc-800">Sem internet agora: o pedido fica guardado no celular e é enviado sozinho quando a internet voltar.</p>}
           </div>
         )}
@@ -646,11 +659,16 @@ export default function Vender() {
             {tela === "itens" ? (
               <button onClick={() => { setBusca(""); setTela("revisar"); }} className="h-12 rounded-xl bg-marca-500 px-6 text-lg font-bold text-white">Revisar →</button>
             ) : (
-              <button onClick={enviar} disabled={enviando} className="h-12 rounded-xl bg-emerald-600 px-6 text-lg font-bold text-white disabled:opacity-60">{enviando ? "Enviando…" : "Enviar pedido"}</button>
+              <button onClick={() => enviar()} disabled={enviando} className="h-12 rounded-xl bg-emerald-600 px-6 text-lg font-bold text-white disabled:opacity-60">{enviando ? "Enviando…" : "Enviar pedido"}</button>
             )}
           </div>
         </div>
       )}
+      <ConfirmarSenha aberto={pedirSenha} aoFechar={() => setPedirSenha(false)} aoConfirmar={() => enviar(true)}>
+        <ul className="space-y-1 text-sm">
+          {abaixo.map((i) => <li key={i.produto_id}><b>{i.nome}</b>: {fmtMoeda(unitario(i))} (mínimo {fmtMoeda(precoMinimo(i.preco, descMax, i.preco_minimo))})</li>)}
+        </ul>
+      </ConfirmarSenha>
       <Avisos />
     </div>
   );

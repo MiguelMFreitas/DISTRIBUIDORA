@@ -1,16 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabaseNavegador } from "@/lib/supabase/client";
 import { fmtDataHora, fmtMoeda, fmtQtd, hojeISO, TURNOS } from "@/lib/formato";
-import { Cabecalho, Selo } from "@/components/ui";
+import { Cabecalho, Selo, avisar } from "@/components/ui";
 import { usePerfil, usePode } from "@/components/perfil-contexto";
 import { PedidoDetalhe } from "@/components/pedido-detalhe";
 import { STATUS_CARGA } from "@/lib/tipos";
 
 type Aguardando = { id: string; numero: number; total: number; feito_em: string; clientes: { razao_social: string }; perfis: { nome: string } | null };
 type CargaHoje = { id: string; numero: number; turno: "manha" | "tarde"; status: string; veiculos: { nome: string } | null; motoristas: { nome: string } | null; pedidos: { count: number }[] };
+type Desconto = {
+  id: string; pedido_id: string; quantidade: number; preco_tabela: number; preco_unit: number; desconto_pct: number; precisa_aprovacao: boolean;
+  produtos: { nome: string; preco_minimo: number | null };
+  pedidos: { numero: number; feito_em: string; status: string; clientes: { razao_social: string }; perfis: { nome: string } | null };
+};
 type Baixo = { id: string; nome: string; estoque: number; estoque_minimo: number; unidade: string };
 
 function Numero({ titulo, valor, sub, href, destaque }: { titulo: string; valor: React.ReactNode; sub?: string; href?: string; destaque?: boolean }) {
@@ -34,6 +39,8 @@ export default function Painel() {
   const [cargas, setCargas] = useState<CargaHoje[]>([]);
   const [baixos, setBaixos] = useState<Baixo[]>([]);
   const [aberto, setAberto] = useState<string | null>(null);
+  const [descontos, setDescontos] = useState<Desconto[]>([]);
+  const vistos = useRef<Set<string> | null>(null);
 
   const verPedidos = pode("pedidos_ver_todos") || pode("cargas");
   const podeCargas = pode("cargas");
@@ -49,6 +56,18 @@ export default function Painel() {
       setHoje({ qtd: ph?.length ?? 0, valor: (ph ?? []).reduce((s: number, p: { total: number }) => s + Number(p.total), 0) });
       setSemCarga(count ?? 0);
       setAguardando((ag ?? []) as unknown as Aguardando[]);
+      // todos os descontos de hoje (avisa quando chega um novo)
+      const { data: ds } = await sb.from("pedido_itens")
+        .select("id, pedido_id, quantidade, preco_tabela, preco_unit, desconto_pct, precisa_aprovacao, produtos(nome, preco_minimo), pedidos!inner(numero, feito_em, status, clientes(razao_social), perfis!pedidos_vendedor_id_fkey(nome))")
+        .gt("desconto_pct", 0).gte("pedidos.feito_em", inicio).not("pedidos.status", "in", "(cancelado,recusado)");
+      const lista = ((ds ?? []) as unknown as Desconto[]).sort((a, b) => b.pedidos.feito_em.localeCompare(a.pedidos.feito_em) || a.pedidos.numero - b.pedidos.numero);
+      if (vistos.current) {
+        const novos = lista.filter((d) => !vistos.current!.has(d.id));
+        const pedidosNovos = [...new Set(novos.map((d) => d.pedidos.numero))];
+        if (pedidosNovos.length) avisar(`💲 Desconto novo: pedido${pedidosNovos.length > 1 ? "s" : ""} nº ${pedidosNovos.join(", ")} (${novos[0].pedidos.perfis?.nome ?? "—"})`);
+      }
+      vistos.current = new Set(lista.map((d) => d.id));
+      setDescontos(lista);
     }
     if (podeCargas) {
       const { data } = await sb.from("cargas").select("id, numero:numero_dia, turno, status, veiculos(nome), motoristas(nome), pedidos(count)").eq("data", hojeISO()).order("turno").order("numero");
@@ -72,7 +91,7 @@ export default function Painel() {
         <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Numero titulo="Pedidos hoje" valor={hoje.qtd} sub={fmtMoeda(hoje.valor)} href="/pedidos" />
           <Numero titulo="Sem carga" valor={semCarga} sub="liberados, esperando carga" href="/cargas" />
-          <Numero titulo="Aguardando aprovação" valor={aguardando.length} sub="desconto acima do limite" destaque={aguardando.length > 0} />
+          <Numero titulo="Aguardando aprovação" valor={aguardando.length} sub="produto abaixo do preço mínimo" destaque={aguardando.length > 0} />
           <Numero titulo="Estoque baixo" valor={baixos.length} sub="produtos no mínimo ou zerados" href="/estoque" destaque={baixos.some((b) => b.estoque <= 0)} />
         </div>
       )}
@@ -89,6 +108,39 @@ export default function Painel() {
                 </button>
               ))}
             </div>
+          </section>
+        )}
+
+        {verPedidos && (
+          <section className="lg:col-span-2">
+            <h2 className="titulo mb-2 text-lg">Descontos de hoje <span className="text-base font-normal text-zinc-500">({descontos.length})</span></h2>
+            {descontos.length === 0 ? <p className="cartao p-4 text-zinc-500">Nenhum desconto hoje.</p> : (
+              <div className="cartao overflow-x-auto">
+                <table className="w-full text-[15px]">
+                  <thead className="border-b border-zinc-200 text-left text-xs uppercase text-zinc-500 dark:border-zinc-800">
+                    <tr><th className="px-3 py-2">Pedido</th><th className="px-3 py-2">Vendedor</th><th className="px-3 py-2">Produto</th><th className="px-3 py-2 text-right">Tabela</th><th className="px-3 py-2 text-right">Vendido</th><th className="px-3 py-2 text-right">Desc.</th><th className="px-3 py-2 text-right">Qtd</th><th className="px-3 py-2" /></tr>
+                  </thead>
+                  <tbody>
+                    {descontos.map((d) => {
+                      const pend = d.precisa_aprovacao && d.pedidos.status === "aguardando_aprovacao";
+                      const abaixoMin = d.produtos.preco_minimo != null && Number(d.preco_unit) < Number(d.produtos.preco_minimo) - 0.001;
+                      return (
+                        <tr key={d.id} onClick={() => setAberto(d.pedido_id)} className={`cursor-pointer border-b border-zinc-100 last:border-0 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/50 ${pend ? "bg-amber-50 dark:bg-amber-500/10" : ""}`}>
+                          <td className="px-3 py-2"><b>Nº {d.pedidos.numero}</b><div className="text-xs text-zinc-500">{d.pedidos.clientes.razao_social}</div></td>
+                          <td className="px-3 py-2">{d.pedidos.perfis?.nome ?? "—"}</td>
+                          <td className="px-3 py-2">{d.produtos.nome}{abaixoMin && <div className="text-xs font-bold text-red-600">abaixo do mínimo ({fmtMoeda(d.produtos.preco_minimo!)})</div>}</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap text-zinc-500">{fmtMoeda(d.preco_tabela)}</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap font-semibold">{fmtMoeda(d.preco_unit)}</td>
+                          <td className="px-3 py-2 text-right font-semibold text-amber-600">{Number(d.desconto_pct).toLocaleString("pt-BR")}%</td>
+                          <td className="px-3 py-2 text-right">{fmtQtd(d.quantidade)}</td>
+                          <td className="px-3 py-2 text-right text-xs font-bold whitespace-nowrap">{pend ? <span className="text-amber-700 dark:text-amber-300">Aprovar →</span> : <span className="text-zinc-400">ok</span>}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
         )}
 

@@ -9,10 +9,13 @@ import { Botao, Cabecalho, avisar } from "@/components/ui";
 import { BuscaProduto } from "@/components/busca-produto";
 import { usePerfil } from "@/components/perfil-contexto";
 import { abrirImpressaoPedidos } from "@/lib/impressao";
+import { CampoPreco } from "@/components/campo-preco";
+import { ConfirmarSenha } from "@/components/confirmar-senha";
+import { pctDesconto, precoMinimo } from "@/lib/offline";
 
-type Linha = { p: Produto; qtd: number; desc: number };
+type Linha = { p: Produto; qtd: number; preco: number };
 const novoId = () => crypto.randomUUID();
-const unit = (l: Linha) => Math.round(l.p.preco * (1 - l.desc / 100) * 100) / 100;
+const unit = (l: Linha) => Math.round(l.preco * 100) / 100;
 
 function BuscaCliente({ clientes, aoEscolher }: { clientes: Cliente[]; aoEscolher: (c: Cliente) => void }) {
   const [q, setQ] = useState("");
@@ -91,7 +94,7 @@ export default function NovoPedido() {
 
   function adicionar(p: Produto) {
     if (p.estoque <= 0) return avisar(`${p.nome} está sem estoque.`, "erro");
-    setLinhas((l) => (l.some((x) => x.p.id === p.id) ? l.map((x) => (x.p.id === p.id ? { ...x, qtd: Math.min(p.estoque, x.qtd + 1) } : x)) : [...l, { p, qtd: 1, desc: 0 }]));
+    setLinhas((l) => (l.some((x) => x.p.id === p.id) ? l.map((x) => (x.p.id === p.id ? { ...x, qtd: Math.min(p.estoque, x.qtd + 1) } : x)) : [...l, { p, qtd: 1, preco: Number(p.preco) }]));
     if (p.estoque <= p.estoque_minimo) avisar(`Atenção: só tem ${fmtQtd(p.estoque)} de ${p.nome}`);
   }
   const mudar = (id: string, campos: Partial<Linha>) => setLinhas((l) => l.map((x) => (x.p.id === id ? { ...x, ...campos } : x)));
@@ -105,15 +108,23 @@ export default function NovoPedido() {
   const validas = linhas.filter((l) => l.qtd > 0);
   const total = validas.reduce((s, l) => s + unit(l) * l.qtd, 0);
   const peso = validas.reduce((s, l) => s + l.p.peso_kg * l.qtd, 0);
-  const acima = validas.some((l) => l.desc > descMax);
+  const minimo = (l: Linha) => precoMinimo(Number(l.p.preco), descMax, l.p.preco_minimo);
+  const baixo = (l: Linha) => unit(l) < minimo(l) - 0.001;
+  const abaixo = validas.filter(baixo);
+  const acima = abaixo.length > 0 && !eu.admin;
+  const [pedirSenha, setPedirSenha] = useState<false | "salvar" | "imprimir">(false);
 
-  async function salvar(imprimir: boolean) {
+  async function salvar(imprimir: boolean, senhaConferida = false) {
     if (!cliente) return avisar("Escolha o cliente.", "erro");
     if (!validas.length) return avisar("Adicione pelo menos um produto com quantidade.", "erro");
+    if (validas.some((l) => !(l.preco > 0))) return avisar("Tem produto com preço zerado.", "erro");
+    // administrador vendendo abaixo do preço mínimo: confirma com a senha
+    if (eu.admin && abaixo.length > 0 && !senhaConferida) return setPedirSenha(imprimir ? "imprimir" : "salvar");
+    setPedirSenha(false);
     setSalvando(true);
     const { data, error } = await sb.rpc("criar_pedido", {
       p_client_id: clientId, p_cliente_id: cliente.id,
-      p_itens: validas.map((l) => ({ produto_id: l.p.id, quantidade: l.qtd, desconto_pct: l.desc })),
+      p_itens: validas.map((l) => ({ produto_id: l.p.id, quantidade: l.qtd, preco_unit: unit(l), desconto_pct: pctDesconto(Number(l.p.preco), unit(l)) })),
       p_observacao: obs || null, p_feito_em: null, p_vendedor_id: donoFixo ? cliente!.vendedor_id : vendedor === eu.id ? null : vendedor,
     });
     setSalvando(false);
@@ -185,7 +196,7 @@ export default function NovoPedido() {
               <div className="overflow-x-auto">
                 <table className="w-full text-[15px]">
                   <thead className="border-b border-zinc-200 text-left text-xs uppercase text-zinc-500 dark:border-zinc-800">
-                    <tr><th className="py-2">Produto</th><th className="py-2 text-right">Qtd</th><th className="py-2 text-right">Preço</th><th className="py-2 text-right">Desc. %</th><th className="py-2 text-right">Total</th><th /></tr>
+                    <tr><th className="py-2">Produto</th><th className="py-2 text-right">Qtd</th><th className="py-2 text-right">Tabela</th><th className="py-2 text-right">Preço de venda</th><th className="py-2 text-right">Total</th><th /></tr>
                   </thead>
                   <tbody>
                     {linhas.map((l) => (
@@ -198,10 +209,12 @@ export default function NovoPedido() {
                           <input className="campo w-20! text-right" inputMode="decimal" defaultValue={String(l.qtd).replace(".", ",")} key={`${l.p.id}-${l.qtd}`}
                             onBlur={(e) => ajustarQtd(l, e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()} aria-label={`Quantidade de ${l.p.nome}`} />
                         </td>
-                        <td className="py-2 text-right whitespace-nowrap">{fmtMoeda(unit(l))}{l.desc > 0 && <div className="text-xs text-zinc-400 line-through">{fmtMoeda(l.p.preco)}</div>}</td>
+                        <td className="py-2 text-right whitespace-nowrap text-zinc-500">{fmtMoeda(l.p.preco)}{l.p.preco_minimo != null && <div className="text-xs">mín. {fmtMoeda(l.p.preco_minimo)}</div>}</td>
                         <td className="py-2 text-right">
-                          <input className={`campo w-16! text-right ${l.desc > descMax ? "border-amber-500 bg-amber-50 dark:bg-amber-500/10" : ""}`} inputMode="decimal" value={l.desc || ""} placeholder="0"
-                            onChange={(e) => mudar(l.p.id, { desc: Math.min(100, Math.max(0, Number(e.target.value.replace(",", ".")) || 0)) })} aria-label={`Desconto de ${l.p.nome}`} />
+                          <CampoPreco valor={unit(l)} aoMudar={(n) => mudar(l.p.id, { preco: n })} aria-label={`Preço de ${l.p.nome}`}
+                            className={`campo w-24! text-right ${baixo(l) ? "border-red-500 bg-red-50 dark:bg-red-500/10" : unit(l) < Number(l.p.preco) ? "border-amber-500 bg-amber-50 dark:bg-amber-500/10" : ""}`} />
+                          {pctDesconto(Number(l.p.preco), unit(l)) > 0 && <div className={`text-xs font-semibold ${baixo(l) ? "text-red-600" : "text-amber-600"}`}>−{fmtQtd(pctDesconto(Number(l.p.preco), unit(l)))}%</div>}
+                          {baixo(l) && <div className="text-xs font-semibold text-red-600">Preço mínimo é {fmtMoeda(minimo(l))}</div>}
                         </td>
                         <td className="py-2 text-right font-semibold whitespace-nowrap">{fmtMoeda(unit(l) * l.qtd)}</td>
                         <td className="py-2 pl-1 text-right"><Botao variante="fantasma" tamanho="p" onClick={() => setLinhas((x) => x.filter((y) => y.p.id !== l.p.id))} aria-label="Remover">✕</Botao></td>
@@ -226,12 +239,18 @@ export default function NovoPedido() {
             <div className="flex justify-between text-sm"><span className="text-zinc-500">Itens</span><span>{fmtQtd(validas.reduce((s, l) => s + l.qtd, 0))}</span></div>
             <div className="flex justify-between text-sm"><span className="text-zinc-500">Peso</span><span>{fmtPeso(peso)}</span></div>
             <div className="flex items-baseline justify-between border-t border-zinc-200 pt-3 dark:border-zinc-800"><span className="font-semibold">Total</span><span className="font-display text-3xl font-bold">{fmtMoeda(total)}</span></div>
-            {acima && <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">Desconto acima do seu limite ({fmtQtd(descMax)}%): o pedido vai aguardar aprovação.</p>}
+            {acima && <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">Tem produto abaixo do seu preço mínimo: esse produto vai aguardar aprovação.</p>}
+            {eu.admin && abaixo.length > 0 && <p className="rounded-lg bg-red-50 p-2 text-sm font-semibold text-red-800 dark:bg-red-500/10 dark:text-red-200">⚠️ Tem produto abaixo do preço mínimo. Ao salvar, o sistema vai pedir a sua senha.</p>}
             <Botao className="w-full" tamanho="g" onClick={() => salvar(false)} carregando={salvando}>Salvar pedido</Botao>
             <Botao className="w-full" variante="secundario" onClick={() => salvar(true)} disabled={salvando}>Salvar e imprimir</Botao>
           </div>
         </aside>
       </div>
+      <ConfirmarSenha aberto={!!pedirSenha} aoFechar={() => setPedirSenha(false)} aoConfirmar={() => salvar(pedirSenha === "imprimir", true)}>
+        <ul className="space-y-1 text-sm">
+          {abaixo.map((l) => <li key={l.p.id}><b>{l.p.nome}</b>: {fmtMoeda(unit(l))} (mínimo {fmtMoeda(minimo(l))})</li>)}
+        </ul>
+      </ConfirmarSenha>
     </>
   );
 }
