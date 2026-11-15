@@ -527,4 +527,76 @@ select salvar_agenda('00000000-0000-0000-0000-00000000000b', '[
   {"dia":4,"turno":"manha","rota_id":"60000000-0000-0000-0000-000000000002"}]');
 select pg_temp.ok((select count(*) from agenda_visitas where vendedor_id = '00000000-0000-0000-0000-00000000000b' and dia_semana = 4 and turno = 'manha') = 2, 'dois bairros na mesma manhã (repetido conta uma vez)');
 
+
+-- ---------- 30. link de pedidos (cliente sem login) ----------
+reset role;
+update produtos set estoque = 50 where id = '30000000-0000-0000-0000-000000000002';
+set role anon;
+select pg_temp.como('');
+select pg_temp.ok((loja_catalogo() ->> 'ligado')::boolean and jsonb_array_length(loja_catalogo() -> 'produtos') >= 3, 'catálogo do link abre sem login');
+select pg_temp.ok(not (loja_catalogo() -> 'produtos' -> 0 ? 'custo') and not (loja_catalogo() -> 'produtos' -> 0 ? 'estoque'), 'catálogo não mostra custo nem estoque');
+select loja_pedido('70000000-0000-0000-0000-000000000001', 'Maria da Silva', '(85) 99999-1111', 'Rua A, 10', 'Centro', 'perto da praça',
+  'dinheiro', 200, 'tocar a campainha', '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":2}]') ->> 'numero' as nlink \gset
+reset role;
+select pg_temp.ok((select status = 'liberado' and entrega = 'moto' and origem = 'link' and vendedor_id = 'f0000000-0000-4000-8000-00000000c0de'
+                     and contato_telefone = '85999991111' and contato_nome = 'MARIA DA SILVA' and troco_para = 200 and total = 80
+                   from pedidos where numero = :nlink), 'pedido do link: liberado, moto, conta para o vendedor do link, guarda contato e troco');
+select pg_temp.ok((select count(*) from clientes where razao_social = 'MARIA DA SILVA') = 0, 'cliente do link não é cadastrado');
+select pg_temp.ok((select estoque from produtos where id = '30000000-0000-0000-0000-000000000002') = 48, 'pedido do link baixa o estoque');
+set role anon;
+select pg_temp.ok((loja_pedido('70000000-0000-0000-0000-000000000001', 'Maria da Silva', '85999991111', 'Rua A, 10', 'Centro', null,
+  'pix', null, null, '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":2}]') ->> 'duplicado')::boolean, 'reenvio do link não duplica');
+do $$ begin
+  perform loja_pedido(gen_random_uuid(), 'Zé', '85999990000', 'Rua B, 1', 'Centro', null, 'dinheiro', 10, null,
+    '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":2}]');
+  raise exception 'FALHOU: troco menor que o total';
+exception when others then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'OK   troco menor que o total é recusado';
+end $$;
+do $$ begin
+  perform loja_pedido(gen_random_uuid(), 'Zé', '85999990000', 'Rua B, 1', 'Centro', null, 'cartao', null, null,
+    '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1}]');
+  raise exception 'FALHOU: aceitou cartão';
+exception when others then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'OK   link não aceita cartão';
+end $$;
+do $$ begin
+  perform loja_pedido(gen_random_uuid(), 'Zé', '85999990000', 'Rua B, 1', 'Centro', null, 'pix', null, null,
+    '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":999}]');
+  raise exception 'FALHOU: vendeu sem estoque pelo link';
+exception when others then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'OK   link não vende sem estoque (%)', sqlerrm;
+end $$;
+do $$ begin
+  perform 1 from pedidos;
+  raise exception 'FALHOU: anônimo leu pedidos';
+exception when insufficient_privilege then raise notice 'OK   quem abre o link não lê os pedidos';
+end $$;
+do $$ begin
+  perform marcar_link_visto(gen_random_uuid());
+  raise exception 'FALHOU: anônimo chamou função do escritório';
+exception when insufficient_privilege then raise notice 'OK   quem abre o link não mexe no escritório';
+end $$;
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select marcar_link_visto((select id from pedidos where numero = :nlink));
+select cadastrar_cliente_do_link((select id from pedidos where numero = :nlink)) as cli \gset
+select pg_temp.ok((select razao_social from clientes where id = :'cli') = 'MARIA DA SILVA'
+              and (select cliente_id from pedidos where numero = :nlink) = :'cli', 'escritório cadastra o cliente do link com um botão');
+reset role;
+update configuracoes set valor = jsonb_set(valor, '{ligado}', 'false') where chave = 'link_pedidos';
+set role anon;
+do $$ begin
+  perform loja_pedido(gen_random_uuid(), 'Zé', '85999990000', 'Rua B, 1', 'Centro', null, 'pix', null, null,
+    '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1}]');
+  raise exception 'FALHOU: link desligado aceitou pedido';
+exception when others then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'OK   link desligado não aceita pedido';
+end $$;
+reset role;
+
 \warn '>>> TODOS OS TESTES PASSARAM'

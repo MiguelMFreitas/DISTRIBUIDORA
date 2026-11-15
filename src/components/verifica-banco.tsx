@@ -5,7 +5,7 @@ import { supabaseNavegador } from "@/lib/supabase/client";
 import { hojeISO } from "@/lib/formato";
 
 /** Versão que este site espera do banco (a última atualização em supabase/migrations) */
-export const VERSAO_ESPERADA = 23;
+export const VERSAO_ESPERADA = 24;
 const PASTA = "https://github.com/MiguelMFreitas/DISTRIBUIDORA/tree/main/supabase/migrations";
 
 type Falta = { n: string; arquivo: string; o_que: string };
@@ -41,6 +41,7 @@ export function VerificaBanco() {
         // sem coluna nova: confere pela versão gravada no banco
         ["23", "20261116000023_varios_bairros_por_periodo.sql", "mais de um bairro por período na agenda",
           () => sb.rpc("versao_banco").then(({ data, error }) => ({ error: error ?? (typeof data === "number" && data < 23 ? { message: "does not exist" } : null) }))],
+        ["24", "20261116000024_link_de_pedidos.sql", "link de pedidos para os clientes", () => lerColuna("pedidos", "origem")],
       ];
       const res = await Promise.all(testes.map(async ([n, arquivo, o_que, f]) => {
         const { error } = await f();

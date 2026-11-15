@@ -1,5 +1,6 @@
 "use client";
 
+import { comContato, textoPagamento } from "@/lib/contato";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { supabaseNavegador } from "@/lib/supabase/client";
@@ -51,7 +52,7 @@ function Conteudo() {
       }
       // itens na ordem das categorias, igual ao caminhão
       lista.forEach((p) => p.pedido_itens.sort((x, y) => (x.produtos.categorias?.ordem ?? 9999) - (y.produtos.categorias?.ordem ?? 9999) || x.produtos.nome.localeCompare(y.produtos.nome, "pt-BR", { sensitivity: "base", numeric: true })));
-      setPedidos(lista);
+      setPedidos(lista.map(comContato));
       document.title = carga ? "Pedidos da carga" : `Pedidos (${lista.length})`;
       for (let i = 0; i < lista.length; i += 80) {
         await sb.rpc("marcar_pedidos_impressos", { p_pedidos: lista.slice(i, i + 80).map((p) => p.id) });
@@ -142,6 +143,7 @@ function Conteudo() {
                 <div style={{ fontSize: 12, color: "#444" }}>{p.pedido_itens.length} produtos · {fmtQtd(p.pedido_itens.reduce((s, i) => s + Number(i.quantidade), 0))} itens · {fmtPeso(p.peso_kg)}</div>
                 <div><span style={{ fontSize: 11, color: "#555", marginRight: 8 }}>TOTAL</span><span className="valor">{fmtMoeda(p.total)}</span></div>
               </div>
+              {textoPagamento(p) && <div className="ped-obs"><b>Pagamento:</b> {textoPagamento(p)}</div>}
               {p.observacao && <div className="ped-obs"><b>Obs.:</b> {p.observacao}</div>}
               <div className="ped-ass"><div>Recebi as mercadorias acima · Nome / assinatura</div><div>Valor recebido R$</div></div>
             </div>

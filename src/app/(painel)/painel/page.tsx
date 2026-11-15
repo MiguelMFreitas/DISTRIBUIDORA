@@ -16,6 +16,7 @@ type Desconto = {
   produtos: { nome: string; preco_minimo: number | null };
   pedidos: { numero: number; feito_em: string; status: string; clientes: { razao_social: string }; perfis: { nome: string } | null };
 };
+type DoLink = { id: string; numero: number; total: number; feito_em: string; contato_nome: string; contato_bairro: string | null; pagamento: string | null; entrega: string };
 type Baixo = { id: string; nome: string; estoque: number; estoque_minimo: number; unidade: string };
 
 function Numero({ titulo, valor, sub, href, destaque }: { titulo: string; valor: React.ReactNode; sub?: string; href?: string; destaque?: boolean }) {
@@ -41,6 +42,8 @@ export default function Painel() {
   const [aberto, setAberto] = useState<string | null>(null);
   const [descontos, setDescontos] = useState<Desconto[]>([]);
   const [moto, setMoto] = useState(0);
+  const [doLink, setDoLink] = useState<DoLink[]>([]);
+  const vistosLink = useRef<Set<string> | null>(null);
   const vistos = useRef<Set<string> | null>(null);
 
   const verPedidos = pode("pedidos_ver_todos") || pode("cargas");
@@ -58,6 +61,22 @@ export default function Painel() {
       setSemCarga(count ?? 0);
       const { count: cm } = await sb.from("pedidos").select("id", { count: "exact", head: true }).eq("status", "liberado").eq("entrega", "moto");
       setMoto(cm ?? 0);
+      // pedidos novos pelo link (ainda não vistos): avisa
+      const { data: dl } = await sb.from("pedidos").select("id, numero, total, feito_em, contato_nome, contato_bairro, pagamento, entrega")
+        .eq("origem", "link").is("visto_em", null).not("status", "in", "(cancelado,recusado)").order("numero");
+      const listaLink = (dl ?? []) as DoLink[];
+      if (vistosLink.current) {
+        const novos = listaLink.filter((d) => !vistosLink.current!.has(d.id));
+        if (novos.length) {
+          avisar(`🔗 Pedido novo pelo link: nº ${novos.map((d) => d.numero).join(", ")} (${novos[0].contato_nome})`);
+          try { // bip curto
+            const ac = new AudioContext(), o = ac.createOscillator(), g = ac.createGain();
+            o.frequency.value = 880; g.gain.value = 0.15; o.connect(g); g.connect(ac.destination); o.start(); o.stop(ac.currentTime + 0.25);
+          } catch {}
+        }
+      }
+      vistosLink.current = new Set(listaLink.map((d) => d.id));
+      setDoLink(listaLink);
       setAguardando((ag ?? []) as unknown as Aguardando[]);
       // todos os descontos de hoje (avisa quando chega um novo)
       const { data: ds } = await sb.from("pedido_itens")
@@ -101,6 +120,20 @@ export default function Painel() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
+        {verPedidos && doLink.length > 0 && (
+          <section className="lg:col-span-2">
+            <div className="mb-2 flex items-center justify-between"><h2 className="titulo text-lg">🔗 Pedidos novos pelo link ({doLink.length})</h2><Link href="/link" className="text-sm font-semibold text-marca-600">Link de pedidos →</Link></div>
+            <div className="cartao divide-y divide-sky-100 border-sky-300 bg-sky-50 dark:divide-sky-900 dark:bg-sky-500/10">
+              {doLink.map((d) => (
+                <button key={d.id} onClick={() => setAberto(d.id)} className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-sky-100/60 dark:hover:bg-sky-500/20">
+                  <div><div className="font-semibold">Nº {d.numero} · {d.contato_nome}</div><div className="text-sm text-zinc-500">{d.contato_bairro} · {fmtDataHora(d.feito_em)} · {d.pagamento === "pix" ? "Pix" : "Dinheiro"} · {d.entrega === "moto" ? "🏍️ moto" : d.entrega === "caminhao" ? "🚚 caminhão" : "🏪 balcão"}</div></div>
+                  <div className="text-right"><div className="font-semibold">{fmtMoeda(d.total)}</div><div className="text-xs font-semibold text-sky-700 dark:text-sky-300">Abrir →</div></div>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
         {verPedidos && aguardando.length > 0 && (
           <section>
             <h2 className="titulo mb-2 text-lg">Aguardando aprovação</h2>

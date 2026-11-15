@@ -5,8 +5,9 @@ import { supabaseNavegador } from "@/lib/supabase/client";
 import { erroMsg, fmtDataHora, fmtMoeda, fmtQtd, hojeISO } from "@/lib/formato";
 import { Botao, BotaoConfirmar, Cabecalho, Vazio, avisar } from "@/components/ui";
 import { abrirImpressaoPedidos } from "@/lib/impressao";
+import { CAMPOS_CONTATO, comContato, textoPagamento, type Contato } from "@/lib/contato";
 
-type Entrega = {
+type Entrega = Contato & {
   id: string; numero: number; total: number; status: string; observacao: string | null; feito_em: string; entregue_em: string | null;
   clientes: { razao_social: string; nome_fantasia: string | null; endereco: string | null; numero: string | null; bairro: string | null; cidade: string | null; referencia: string | null; telefone: string | null };
   pedido_itens: { quantidade: number; produtos: { nome: string; unidade: string } }[];
@@ -25,12 +26,12 @@ export default function Moto() {
   const carregar = useCallback(async () => {
     const inicio = new Date(hojeISO() + "T00:00:00").toISOString();
     const { data, error } = await sb.from("pedidos")
-      .select("id, numero, total, status, observacao, feito_em, entregue_em, clientes(razao_social, nome_fantasia, endereco, numero, bairro, cidade, referencia, telefone), pedido_itens(quantidade, produtos(nome, unidade))")
+      .select("id, numero, total, status, observacao, feito_em, entregue_em, " + CAMPOS_CONTATO + ", clientes(razao_social, nome_fantasia, endereco, numero, bairro, cidade, referencia, telefone), pedido_itens(quantidade, produtos(nome, unidade))")
       .eq("entrega", "moto")
       .or(`status.in.(liberado,aguardando_aprovacao),and(status.eq.entregue,entregue_em.gte.${inicio})`)
       .order("numero");
     if (error) avisar(erroMsg(error), "erro");
-    setLista((data ?? []) as unknown as Entrega[]);
+    setLista(((data ?? []) as unknown as Entrega[]).map(comContato));
     setCarregado(true);
   }, [sb]);
 
@@ -67,7 +68,7 @@ export default function Moto() {
             <div key={p.id} className="cartao p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-xs font-semibold text-zinc-500">Nº {p.numero}</div>
+                  <div className="text-xs font-semibold text-zinc-500">Nº {p.numero}{p.origem === "link" && <span className="ml-1 text-sky-700 dark:text-sky-300">· 🔗 pelo link</span>}</div>
                   <div className="text-xl font-bold leading-tight">{p.clientes.nome_fantasia || p.clientes.razao_social}</div>
                 </div>
                 <div className="text-right font-display text-2xl font-bold">{fmtMoeda(p.total)}</div>
@@ -77,6 +78,7 @@ export default function Moto() {
               <ul className="mt-2 rounded-lg bg-zinc-50 p-2 text-sm dark:bg-zinc-800/60">
                 {p.pedido_itens.map((i, k) => <li key={k}><b>{fmtQtd(i.quantidade)} {i.produtos.unidade}</b> {i.produtos.nome}</li>)}
               </ul>
+              {textoPagamento(p) && <div className="mt-2 rounded-lg bg-emerald-50 p-2 text-[15px] font-semibold text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200">💵 {textoPagamento(p)}</div>}
               {p.observacao && <div className="mt-2 text-sm"><b>Obs.:</b> {p.observacao}</div>}
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <a className={`grid h-12 place-items-center rounded-xl border border-zinc-300 font-semibold dark:border-zinc-700 ${end ? "" : "pointer-events-none opacity-40"}`}

@@ -1,5 +1,6 @@
 "use client";
 
+import { CAMPOS_CONTATO, comContato, type Contato } from "@/lib/contato";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -10,7 +11,7 @@ import { Botao, BotaoConfirmar, Selo, avisar } from "@/components/ui";
 import { Exige } from "@/components/perfil-contexto";
 import { PedidoDetalhe } from "@/components/pedido-detalhe";
 
-type P = {
+type P = Contato & {
   id: string; numero: number; total: number; peso_kg: number; carga_id: string | null; status: string;
   clientes: { razao_social: string; nome_fantasia: string | null; bairro: string | null; cidade: string | null; rota_id: string | null };
   perfis: { nome: string } | null;
@@ -37,12 +38,12 @@ export default function MontarCarga() {
     const [{ data: c }, { data: ps }] = await Promise.all([
       sb.from("cargas").select("*").eq("id", id).single(),
       sb.from("pedidos")
-        .select("id, numero, total, peso_kg, carga_id, status, clientes(razao_social, nome_fantasia, bairro, cidade, rota_id), perfis!pedidos_vendedor_id_fkey(nome)")
+        .select("id, numero, total, peso_kg, carga_id, status, " + CAMPOS_CONTATO + ", clientes(razao_social, nome_fantasia, bairro, cidade, rota_id), perfis!pedidos_vendedor_id_fkey(nome)")
         .or(`carga_id.eq.${id},and(status.eq.liberado,carga_id.is.null,entrega.eq.caminhao)`)
         .order("numero"),
     ]);
     setCarga(c as Carga);
-    const lista = (ps ?? []) as unknown as P[];
+    const lista = ((ps ?? []) as unknown as P[]).map(comContato);
     setPedidos(lista);
     const s = new Set(lista.filter((p) => p.carga_id === id).map((p) => p.id));
     setNa(s);

@@ -24,7 +24,8 @@ export default function Usuarios() {
 
   const carregar = useCallback(async () => {
     const { data } = await sb.from("perfis").select("*").order("admin", { ascending: false }).order("nome");
-    setLista((data ?? []) as Perfil[]);
+    // o "vendedor" automático do link de pedidos não é uma pessoa: não aparece aqui
+    setLista(((data ?? []) as Perfil[]).filter((u) => u.usuario !== "link-de-pedidos"));
   }, [sb]);
   useEffect(() => { carregar(); }, [carregar]);
 

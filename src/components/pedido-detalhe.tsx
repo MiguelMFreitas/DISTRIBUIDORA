@@ -7,13 +7,15 @@ import { ENTREGAS, STATUS_PEDIDO, type StatusPedido, type TipoEntrega } from "@/
 import { Botao, BotaoConfirmar, Modal, Selo, avisar } from "./ui";
 import { usePerfil, usePode } from "./perfil-contexto";
 import { CampoPreco } from "./campo-preco";
+import { CAMPOS_CONTATO, comContato, textoPagamento, type Contato } from "@/lib/contato";
 import { ConfirmarSenha } from "./confirmar-senha";
 
 type Item = { id: string; quantidade: number; preco_tabela: number; desconto_pct: number; preco_unit: number; total: number; precisa_aprovacao: boolean; motivo_aprovacao: string | null; produtos: { nome: string; unidade: string; permite_meia: boolean; preco_minimo: number | null } };
 
 /** abaixo do preço mínimo do cadastro do produto */
 const abaixoCad = (i: Item, preco = Number(i.preco_unit)) => i.produtos.preco_minimo != null && preco < Number(i.produtos.preco_minimo) - 0.001;
-type Det = {
+type Det = Contato & {
+  cliente_id: string; visto_em: string | null;
   id: string; numero: number; status: StatusPedido; total: number; peso_kg: number; observacao: string | null; feito_em: string; carga_id: string | null; entrega: TipoEntrega;
   clientes: { razao_social: string; nome_fantasia: string | null; endereco: string | null; numero: string | null; bairro: string | null; cidade: string | null; telefone: string | null };
   perfis: { nome: string; desconto_max: number } | null;
@@ -33,11 +35,26 @@ export function PedidoDetalhe({ id, aoFechar, aoMudar }: { id: string | null; ao
   const ler = useCallback(async () => {
     if (!id) return;
     const { data, error } = await sb.from("pedidos")
-      .select("id, numero, status, total, peso_kg, observacao, feito_em, carga_id, entrega, clientes(razao_social, nome_fantasia, endereco, numero, bairro, cidade, telefone), perfis!pedidos_vendedor_id_fkey(nome, desconto_max), pedido_itens(id, quantidade, preco_tabela, desconto_pct, preco_unit, total, precisa_aprovacao, motivo_aprovacao, produtos(nome, unidade, permite_meia, preco_minimo))")
+      .select("id, numero, status, total, peso_kg, observacao, feito_em, carga_id, entrega, cliente_id, visto_em, " + CAMPOS_CONTATO + ", clientes(razao_social, nome_fantasia, endereco, numero, bairro, cidade, telefone), perfis!pedidos_vendedor_id_fkey(nome, desconto_max), pedido_itens(id, quantidade, preco_tabela, desconto_pct, preco_unit, total, precisa_aprovacao, motivo_aprovacao, produtos(nome, unidade, permite_meia, preco_minimo))")
       .eq("id", id).single();
     if (error) avisar(erroMsg(error), "erro");
-    setP(data as unknown as Det);
+    const d = data as unknown as Det | null;
+    setP(d ? comContato(d) : null);
+    // pedido pelo link: abrir já conta como "visto"
+    if (d && d.origem === "link" && !d.visto_em && pode("pedidos_ver_todos")) {
+      sb.rpc("marcar_link_visto", { p_pedido: d.id }).then(({ error: e }) => { if (!e) aoMudar(); });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, sb]);
+
+  async function cadastrarCliente() {
+    if (!p) return;
+    const { error } = await sb.rpc("cadastrar_cliente_do_link", { p_pedido: p.id });
+    if (error) return avisar(erroMsg(error), "erro");
+    avisar(`${p.contato_nome} cadastrado em Clientes. Complete o cadastro (bairro, vendedor) na tela Clientes.`);
+    aoMudar();
+    ler();
+  }
 
   useEffect(() => { setP(null); setEditando(null); ler(); }, [ler]);
 
@@ -120,8 +137,20 @@ export function PedidoDetalhe({ id, aoFechar, aoMudar }: { id: string | null; ao
               <Selo cor={STATUS_PEDIDO[p.status].cor}>{STATUS_PEDIDO[p.status].nome}</Selo>
               <div className="mt-1 text-zinc-500">{p.perfis?.nome ?? "—"} · {fmtDataHora(p.feito_em)}</div>
               <div className="mt-1 font-semibold">{ENTREGAS[p.entrega ?? "caminhao"].icone} {ENTREGAS[p.entrega ?? "caminhao"].nome}</div>
+              {p.origem === "link" && <div className="mt-1"><Selo cor="bg-sky-100 text-sky-900 dark:bg-sky-500/20 dark:text-sky-200">🔗 Pedido pelo link</Selo></div>}
             </div>
           </div>
+          {p.origem === "link" && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-sky-50 p-3 text-sm dark:bg-sky-500/10">
+              <div>
+                <div><b>Pagamento:</b> {textoPagamento(p) ?? "—"}</div>
+                <div className="text-zinc-500">O cliente fez sozinho pelo link. Ele não fica cadastrado, a não ser que você cadastre.</div>
+              </div>
+              {p.cliente_id === "f0000000-0000-4000-8000-00000000c11e"
+                ? pode("clientes") && <Botao tamanho="p" variante="secundario" onClick={cadastrarCliente}>Cadastrar este cliente</Botao>
+                : <span className="font-semibold text-emerald-700 dark:text-emerald-300">✓ cadastrado em Clientes</span>}
+            </div>
+          )}
           {podeMudarEntrega && (
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="text-zinc-500">Mudar entrega:</span>

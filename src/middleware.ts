@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { urlSupabase } from "@/lib/supabase/url";
 
-const PUBLICAS = ["/login", "/sb/", "/sw.js", "/manifest.webmanifest", "/offline"];
+const PUBLICAS = ["/login", "/pedir", "/sb/", "/sw.js", "/manifest.webmanifest", "/offline"];
 
 export async function middleware(req: NextRequest) {
   let res = NextResponse.next({ request: req });

@@ -11,7 +11,7 @@ import { PedidoDetalhe } from "@/components/pedido-detalhe";
 import { abrirImpressaoPedidos } from "@/lib/impressao";
 
 type Linha = {
-  id: string; numero: number; status: StatusPedido; total: number; peso_kg: number; feito_em: string; impresso_em: string | null; carga_id: string | null; entrega: "caminhao" | "moto" | "balcao";
+  id: string; numero: number; status: StatusPedido; total: number; peso_kg: number; feito_em: string; impresso_em: string | null; carga_id: string | null; entrega: "caminhao" | "moto" | "balcao"; origem?: "sistema" | "link"; contato_nome?: string | null; contato_bairro?: string | null;
   clientes: { razao_social: string; nome_fantasia: string | null; bairro: string | null; rota_id: string | null };
   perfis: { nome: string } | null;
   cargas: { numero: number } | null;
@@ -34,7 +34,7 @@ export default function Pedidos() {
   const carregar = useCallback(async () => {
     setCarregando(true);
     const { data, error } = await sb.from("pedidos")
-      .select("id, numero, status, total, peso_kg, feito_em, impresso_em, carga_id, entrega, clientes(razao_social, nome_fantasia, bairro, rota_id), perfis!pedidos_vendedor_id_fkey(nome), cargas(numero:numero_dia)")
+      .select("id, numero, status, total, peso_kg, feito_em, impresso_em, carga_id, entrega, origem, contato_nome, contato_bairro, clientes(razao_social, nome_fantasia, bairro, rota_id), perfis!pedidos_vendedor_id_fkey(nome), cargas(numero:numero_dia)")
       .gte("feito_em", new Date(de + "T00:00:00").toISOString())
       .lt("feito_em", new Date(new Date(ate + "T00:00:00").getTime() + 86400000).toISOString())
       .order("numero", { ascending: false })
@@ -54,7 +54,7 @@ export default function Pedidos() {
     (!status || l.status === status) &&
     (!vendedor || l.perfis?.nome === vendedor) &&
     (!rota || l.clientes.rota_id === rota) &&
-    (!busca.trim() || combina(`${l.numero} ${l.clientes.razao_social} ${l.clientes.nome_fantasia ?? ""} ${l.clientes.bairro ?? ""}`, busca)),
+    (!busca.trim() || combina(`${l.numero} ${l.clientes.razao_social} ${l.clientes.nome_fantasia ?? ""} ${l.clientes.bairro ?? ""} ${l.contato_nome ?? ""} ${l.contato_bairro ?? ""} ${l.origem === "link" ? "link" : ""}`, busca)),
   ), [linhas, status, vendedor, rota, busca]);
 
   const totais = useMemo(() => {
@@ -116,7 +116,7 @@ export default function Pedidos() {
                     <input type="checkbox" className="size-4" checked={sel.has(l.id)} onChange={() => setSel((s) => { const n = new Set(s); if (n.has(l.id)) n.delete(l.id); else n.add(l.id); return n; })} />
                   </td>
                   <td className="px-2 py-2 font-semibold">{l.numero}{l.impresso_em && <span title="Já impresso" className="ml-1 text-xs text-zinc-400">🖨</span>}</td>
-                  <td className="px-2 py-2"><div className="font-medium">{l.clientes.razao_social}</div><div className="text-xs text-zinc-500">{l.clientes.bairro}</div></td>
+                  <td className="px-2 py-2">{l.origem === "link" ? <><div className="font-medium">🔗 {l.contato_nome}</div><div className="text-xs text-zinc-500">{l.contato_bairro} · pelo link</div></> : <><div className="font-medium">{l.clientes.razao_social}</div><div className="text-xs text-zinc-500">{l.clientes.bairro}</div></>}</td>
                   <td className="px-2 py-2 text-sm">{(l.clientes.rota_id && nomeRota[l.clientes.rota_id]) || "—"}</td>
                   <td className="px-2 py-2 text-sm">{l.perfis?.nome ?? "—"}</td>
                   <td className="px-2 py-2 text-sm whitespace-nowrap">{fmtDataHora(l.feito_em)}</td>

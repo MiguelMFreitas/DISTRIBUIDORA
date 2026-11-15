@@ -11,7 +11,7 @@ type Carga = {
   numero: number; nome: string | null; data: string; turno: "manha" | "tarde"; observacao: string | null;
   veiculos: { nome: string; placa: string | null; capacidade_kg: number | null } | null;
   motoristas: { nome: string } | null;
-  pedidos: { id: string; status: string; clientes: { id: string; rotas: { nome: string } | null } }[];
+  pedidos: { id: string; status: string; origem?: string; contato_bairro?: string | null; clientes: { id: string; rotas: { nome: string } | null } }[];
 };
 
 export default function Romaneio() {
@@ -24,7 +24,7 @@ export default function Romaneio() {
   useEffect(() => {
     (async () => {
       const [{ data: c, error: e1 }, { data: i, error: e2 }] = await Promise.all([
-        sb.from("cargas").select("numero:numero_dia, nome, data, turno, observacao, veiculos(nome, placa, capacidade_kg), motoristas(nome), pedidos(id, status, clientes(id, rotas(nome)))").eq("id", id).single(),
+        sb.from("cargas").select("numero:numero_dia, nome, data, turno, observacao, veiculos(nome, placa, capacidade_kg), motoristas(nome), pedidos(id, status, origem, contato_bairro, clientes(id, rotas(nome)))").eq("id", id).single(),
         sb.rpc("romaneio_itens", { p_carga: id }),
       ]);
       if (e1 || e2) return setErro(erroMsg(e1 || e2));
@@ -53,7 +53,7 @@ export default function Romaneio() {
 
   const pedidos = carga.pedidos.filter((p) => ["liberado", "carregado", "entregue"].includes(p.status));
   const clientes = new Set(pedidos.map((p) => p.clientes.id)).size;
-  const listaBairros = ([...new Set(pedidos.map((p) => p.clientes.rotas?.nome).filter(Boolean))] as string[]).sort((a, b) => alfa(a, b));
+  const listaBairros = ([...new Set(pedidos.map((p) => (p.origem === "link" ? p.contato_bairro : p.clientes.rotas?.nome)).filter(Boolean))] as string[]).sort((a, b) => alfa(a, b));
   const rotas = listaBairros.join(", ") || "—";
   // nome grande do romaneio: sempre os bairros dos pedidos que estão na carga
   const nomeRomaneio = listaBairros.length ? `Rota ${listaBairros.join(" · ")}` : null;

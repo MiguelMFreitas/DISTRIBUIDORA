@@ -1,6 +1,7 @@
 import { fmtDataHora, fmtMoeda, fmtPeso, fmtQtd } from "@/lib/formato";
+import { CAMPOS_CONTATO, comContato, textoPagamento, type Contato } from "@/lib/contato";
 
-export type Ped = {
+export type Ped = Contato & {
   id: string; numero: number; total: number; peso_kg: number; observacao: string | null; feito_em: string; status: string;
   clientes: { razao_social: string; nome_fantasia: string | null; cpf_cnpj: string | null; endereco: string | null; numero: string | null; bairro: string | null; cidade: string | null; referencia: string | null; telefone: string | null; rotas: { nome: string } | null };
   perfis: { nome: string } | null;
@@ -8,17 +9,20 @@ export type Ped = {
   pedido_itens: { id: string; quantidade: number; preco_unit: number; desconto_pct: number; total: number; produtos: { nome: string; codigo: string | null; unidade: string; categorias: { ordem: number } | null } }[];
 };
 
-export const SELECT_PEDIDO_IMPRESSAO = "id, numero, total, peso_kg, observacao, feito_em, status, clientes(razao_social, nome_fantasia, cpf_cnpj, endereco, numero, bairro, cidade, referencia, telefone, rotas(nome)), perfis!pedidos_vendedor_id_fkey(nome), cargas(numero:numero_dia, nome, motoristas(nome)), pedido_itens(id, quantidade, preco_unit, desconto_pct, total, produtos(nome, codigo, unidade, categorias(ordem)))";
+export const SELECT_PEDIDO_IMPRESSAO = "id, numero, total, peso_kg, observacao, feito_em, status, " + CAMPOS_CONTATO + ", clientes(razao_social, nome_fantasia, cpf_cnpj, endereco, numero, bairro, cidade, referencia, telefone, rotas(nome)), perfis!pedidos_vendedor_id_fkey(nome), cargas(numero:numero_dia, nome, motoristas(nome)), pedido_itens(id, quantidade, preco_unit, desconto_pct, total, produtos(nome, codigo, unidade, categorias(ordem)))";
 
 
 /** Pedido no formato de cupom (impressora térmica): só preto, letras grandes, uma coluna */
-export function Cupom({ p, empresa }: { p: Ped; empresa: string }) {
+export function Cupom({ p: original, empresa }: { p: Ped; empresa: string }) {
+  const p = comContato(original);
   const c = p.clientes;
+  const pag = textoPagamento(p);
   const itens = p.pedido_itens.reduce((s, i) => s + Number(i.quantidade), 0);
   return (
     <div className="cupom">
       <div className="c-emp">{empresa}</div>
       <div className="c-num">PEDIDO {p.numero}</div>
+      {p.origem === "link" && <div className="c-meta"><b>PEDIDO PELO LINK</b></div>}
       <div className="c-meta">{fmtDataHora(p.feito_em)} · Vend.: {p.perfis?.nome ?? "—"}</div>
       {p.cargas && <div className="c-meta"><b>Carga {p.cargas.numero}</b>{p.cargas.motoristas ? ` · ${p.cargas.motoristas.nome}` : ""}</div>}
       <div className="c-sep" />
@@ -41,6 +45,7 @@ export function Cupom({ p, empresa }: { p: Ped; empresa: string }) {
       <div className="c-sep" />
       <div className="c-meta" style={{ textAlign: "left" }}>{p.pedido_itens.length} produtos · {fmtQtd(itens)} itens · {fmtPeso(p.peso_kg)}</div>
       <div className="c-tot"><span>TOTAL</span><span>{fmtMoeda(p.total)}</span></div>
+      {pag && <div><b>PAGAMENTO:</b> {pag}</div>}
       {p.observacao && <><div className="c-sep" /><div><b>OBS.:</b> {p.observacao}</div></>}
       <div className="c-ass">Recebi as mercadorias · Assinatura</div>
       <div className="c-ass" style={{ marginTop: "7mm" }}>Valor recebido R$</div>
