@@ -23,7 +23,7 @@ export default function Agenda() {
   const [agenda, setAgenda] = useState<Item[]>([]);
   const [contagem, setContagem] = useState<Record<string, number>>({});
   const [vendedor, setVendedor] = useState("");
-  const [grade, setGrade] = useState<Record<string, string>>({}); // "1-manha" -> rota_id
+  const [grade, setGrade] = useState<Record<string, string[]>>({}); // "1-manha" -> bairros (pode ter mais de um)
   const [domingo, setDomingo] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
@@ -47,15 +47,17 @@ export default function Agenda() {
 
   // monta a grade do vendedor escolhido
   const salvo = useMemo(() => {
-    const g: Record<string, string> = {};
-    agenda.filter((a) => a.vendedor_id === vendedor).forEach((a) => { g[chave(a.dia_semana, a.turno)] = a.rota_id; });
+    const g: Record<string, string[]> = {};
+    agenda.filter((a) => a.vendedor_id === vendedor).forEach((a) => { const k = chave(a.dia_semana, a.turno); g[k] = [...(g[k] ?? []), a.rota_id]; });
     return g;
   }, [agenda, vendedor]);
   useEffect(() => {
     setGrade(salvo);
     if (Object.keys(salvo).some((k) => k.startsWith("0-"))) setDomingo(true);
   }, [salvo]);
-  const mudou = JSON.stringify(Object.entries(grade).filter(([, v]) => v).sort()) !== JSON.stringify(Object.entries(salvo).sort());
+  const norm = (g: Record<string, string[]>) => JSON.stringify(Object.entries(g).filter(([, v]) => v.length).map(([k, v]) => [k, [...v].sort()]).sort());
+  const mudou = norm(grade) !== norm(salvo);
+  const nomeRota = (id: string) => rotas.find((r) => r.id === id)?.nome ?? "?";
 
   const nomeVend = (id: string | null) => vends.find((v) => v.id === id)?.nome;
   const minhas = rotas.filter((r) => r.vendedor_id === vendedor);
@@ -64,10 +66,10 @@ export default function Agenda() {
   const dias = DIAS_SEMANA.filter((d) => d.n !== 0 || domingo);
 
   // rotas que não aparecem em nenhum dia da agenda de ninguém
-  const semDia = rotas.filter((r) => !agenda.some((a) => a.rota_id === r.id) && !Object.values(grade).includes(r.id));
+  const semDia = rotas.filter((r) => !agenda.some((a) => a.rota_id === r.id) && !Object.values(grade).some((l) => l.includes(r.id)));
 
   function copiarParaSemana(dia: number) {
-    const m = grade[chave(dia, "manha")] ?? "", t = grade[chave(dia, "tarde")] ?? "";
+    const m = grade[chave(dia, "manha")] ?? [], t = grade[chave(dia, "tarde")] ?? [];
     const g = { ...grade };
     [1, 2, 3, 4, 5, 6].forEach((d) => { g[chave(d, "manha")] = m; g[chave(d, "tarde")] = t; });
     setGrade(g);
@@ -75,7 +77,7 @@ export default function Agenda() {
 
   async function salvar() {
     setSalvando(true);
-    const itens = Object.entries(grade).filter(([, v]) => v).map(([k, rota_id]) => { const [dia, turno] = k.split("-"); return { dia: Number(dia), turno, rota_id }; });
+    const itens = Object.entries(grade).flatMap(([k, ids]) => { const [dia, turno] = k.split("-"); return ids.map((rota_id) => ({ dia: Number(dia), turno, rota_id })); });
     const { error } = await sb.rpc("salvar_agenda", { p_vendedor: vendedor, p_itens: itens });
     setSalvando(false);
     if (error) return avisar(erroMsg(error), "erro");
@@ -85,7 +87,7 @@ export default function Agenda() {
 
   return (
     <>
-      <Cabecalho titulo="Agenda de visitas" sub="Escolha o bairro de cada vendedor em cada dia e período. No celular, o vendedor vê só os clientes do bairro do dia, na ordem do roteiro." />
+      <Cabecalho titulo="Agenda de visitas" sub="Escolha os bairros de cada vendedor em cada dia e período (pode ser mais de um bairro de manhã ou de tarde). No celular, o vendedor vê os clientes de cada bairro separados, na ordem do roteiro." />
 
       {vends.length === 0 ? <Vazio>Nenhum vendedor cadastrado (usuário com permissão “Fazer pedidos”).</Vazio> : (
         <div className="space-y-4">
@@ -112,21 +114,34 @@ export default function Agenda() {
                   <tr key={d.n} className="border-b border-zinc-100 last:border-0 dark:border-zinc-800">
                     <td className="px-3 py-2 font-semibold">{d.nome}</td>
                     {TURNOS.map((t) => {
-                      const k = chave(d.n, t.k), v = grade[k] ?? "";
+                      const k = chave(d.n, t.k), lista = grade[k] ?? [];
+                      const tirar = (id: string) => setGrade({ ...grade, [k]: lista.filter((x) => x !== id) });
+                      const opcoes = (l: Rota[]) => l.filter((r) => !lista.includes(r.id));
                       return (
-                        <td key={t.k} className="px-3 py-2">
-                          <select className={`campo ${v ? "border-marca-500! bg-marca-50! font-semibold dark:bg-marca-500/10!" : ""}`} value={v} disabled={!podeEditar}
-                            onChange={(e) => setGrade({ ...grade, [k]: e.target.value })} aria-label={`${d.nome} ${t.nome}`}>
-                            <option value="">— folga / sem bairro —</option>
-                            {minhas.length > 0 && <optgroup label="Bairros dele">{minhas.map((r) => <option key={r.id} value={r.id}>{r.nome} ({contagem[r.id] ?? 0} clientes)</option>)}</optgroup>}
-                            {livres.length > 0 && <optgroup label="Bairros sem vendedor (passam a ser dele)">{livres.map((r) => <option key={r.id} value={r.id}>{r.nome} ({contagem[r.id] ?? 0} clientes)</option>)}</optgroup>}
-                            {deOutros.length > 0 && <optgroup label="Bairros de outros vendedores (ficam compartilhados)">{deOutros.map((r) => <option key={r.id} value={r.id}>{r.nome} (também de {nomeVend(r.vendedor_id) ?? "outro"})</option>)}</optgroup>}
-                          </select>
+                        <td key={t.k} className="px-3 py-2 align-top">
+                          {lista.length > 0 && (
+                            <div className="mb-1.5 flex flex-wrap gap-1.5">
+                              {lista.map((id) => (
+                                <span key={id} className="inline-flex items-center gap-1 rounded-full bg-marca-100 py-1 pl-3 pr-1 text-sm font-semibold text-marca-900 dark:bg-marca-500/20 dark:text-marca-100">
+                                  {nomeRota(id)}
+                                  {podeEditar && <button type="button" onClick={() => tirar(id)} className="grid size-6 place-items-center rounded-full hover:bg-marca-200 dark:hover:bg-marca-500/30" aria-label={`Tirar ${nomeRota(id)} de ${d.nome} ${t.nome}`}>×</button>}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {podeEditar ? (
+                            <select className="campo" value="" onChange={(e) => e.target.value && setGrade({ ...grade, [k]: [...lista, e.target.value] })} aria-label={`${d.nome} ${t.nome}`}>
+                              <option value="">{lista.length ? "+ outro bairro…" : "— folga / sem bairro —"}</option>
+                              {opcoes(minhas).length > 0 && <optgroup label="Bairros dele">{opcoes(minhas).map((r) => <option key={r.id} value={r.id}>{r.nome} ({contagem[r.id] ?? 0} clientes)</option>)}</optgroup>}
+                              {opcoes(livres).length > 0 && <optgroup label="Bairros sem vendedor (passam a ser dele)">{opcoes(livres).map((r) => <option key={r.id} value={r.id}>{r.nome} ({contagem[r.id] ?? 0} clientes)</option>)}</optgroup>}
+                              {opcoes(deOutros).length > 0 && <optgroup label="Bairros de outros vendedores (ficam compartilhados)">{opcoes(deOutros).map((r) => <option key={r.id} value={r.id}>{r.nome} (também de {nomeVend(r.vendedor_id) ?? "outro"})</option>)}</optgroup>}
+                            </select>
+                          ) : lista.length === 0 && <span className="text-zinc-400">folga</span>}
                         </td>
                       );
                     })}
                     <td className="px-2 py-2 text-right">
-                      {podeEditar && d.n === 1 && (grade[chave(1, "manha")] || grade[chave(1, "tarde")]) && (
+                      {podeEditar && d.n === 1 && ((grade[chave(1, "manha")]?.length ?? 0) > 0 || (grade[chave(1, "tarde")]?.length ?? 0) > 0) && (
                         <Botao variante="fantasma" tamanho="p" onClick={() => copiarParaSemana(1)} title="Repetir segunda em todos os dias até sábado">Repetir na semana</Botao>
                       )}
                     </td>

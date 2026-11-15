@@ -518,4 +518,13 @@ select pg_temp.ok((select count(*) from pedidos where entrega = 'moto') = 1 and 
 select entregar_moto((select id from pedidos where entrega = 'moto' and status = 'liberado'));
 select pg_temp.ok((select count(*) from pedidos where entrega = 'moto' and status = 'entregue') = 1, 'entregador marca entregue');
 
+
+-- ---------- 29. mais de um bairro no mesmo período ----------
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select salvar_agenda('00000000-0000-0000-0000-00000000000b', '[
+  {"dia":4,"turno":"manha","rota_id":"60000000-0000-0000-0000-000000000001"},
+  {"dia":4,"turno":"manha","rota_id":"60000000-0000-0000-0000-000000000002"},
+  {"dia":4,"turno":"manha","rota_id":"60000000-0000-0000-0000-000000000002"}]');
+select pg_temp.ok((select count(*) from agenda_visitas where vendedor_id = '00000000-0000-0000-0000-00000000000b' and dia_semana = 4 and turno = 'manha') = 2, 'dois bairros na mesma manhã (repetido conta uma vez)');
+
 \warn '>>> TODOS OS TESTES PASSARAM'
