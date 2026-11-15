@@ -74,9 +74,22 @@ export async function PATCH(req: Request) {
 export async function DELETE(req: Request) {
   const eu = await exigirAdmin();
   if (!eu) return erro("Só administradores apagam usuários.", 403);
-  const { id } = await req.json();
+  const { id, transferir_para } = await req.json();
   if (id === eu.id) return erro("Você não pode apagar a sua própria conta.");
-  const { error } = await supabaseAdmin().auth.admin.deleteUser(String(id));
+  const adm = supabaseAdmin();
+  const { data: alvo } = await adm.from("perfis").select("id, usuario").eq("id", String(id)).maybeSingle();
+  if (!alvo) return erro("Usuário não encontrado.");
+  if (alvo.usuario === "link-de-pedidos") return erro("Esse é o usuário automático do link de pedidos: não pode ser apagado.");
+  // todo cliente precisa ter vendedor: passa os clientes e bairros dele para outra pessoa antes de apagar
+  const destino = String(transferir_para || eu.id);
+  if (destino === alvo.id) return erro("Escolha outra pessoa para ficar com os clientes.");
+  const { data: novo } = await adm.from("perfis").select("id, ativo").eq("id", destino).maybeSingle();
+  if (!novo?.ativo) return erro("A pessoa escolhida para ficar com os clientes não existe ou está inativa.");
+  const r1 = await adm.from("clientes").update({ vendedor_id: destino }).eq("vendedor_id", alvo.id);
+  if (r1.error) return erro(r1.error.message);
+  const r2 = await adm.from("rotas").update({ vendedor_id: destino }).eq("vendedor_id", alvo.id);
+  if (r2.error) return erro(r2.error.message);
+  const { error } = await adm.auth.admin.deleteUser(alvo.id);
   if (error) return erro(error.message);
   return NextResponse.json({ ok: true });
 }

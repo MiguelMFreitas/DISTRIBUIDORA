@@ -21,6 +21,8 @@ export default function Usuarios() {
   const [lista, setLista] = useState<Perfil[]>([]);
   const [form, setForm] = useState<Form | null>(null);
   const [salvando, setSalvando] = useState(false);
+  // apagar: para quem vão os clientes e bairros da pessoa
+  const [apagando, setApagando] = useState<{ u: Form; clientes: number; bairros: number; destino: string } | null>(null);
 
   const carregar = useCallback(async () => {
     const { data } = await sb.from("perfis").select("*").order("admin", { ascending: false }).order("nome");
@@ -51,14 +53,26 @@ export default function Usuarios() {
     }
   }
 
-  async function apagar(id: string) {
+  async function pedirApagar(u: Form) {
+    const [c, b] = await Promise.all([
+      sb.from("clientes").select("id", { count: "exact", head: true }).eq("vendedor_id", u.id!),
+      sb.from("rotas").select("id", { count: "exact", head: true }).eq("vendedor_id", u.id!),
+    ]);
+    setApagando({ u, clientes: c.count ?? 0, bairros: b.count ?? 0, destino: eu.id });
+  }
+  async function apagar() {
+    if (!apagando) return;
+    setSalvando(true);
     try {
-      await enviar("DELETE", { id });
-      avisar("Usuário apagado");
+      await enviar("DELETE", { id: apagando.u.id, transferir_para: apagando.destino });
+      avisar(`Conta de ${apagando.u.nome} apagada`);
+      setApagando(null);
       setForm(null);
       carregar();
     } catch (err) {
       avisar((err as Error).message, "erro");
+    } finally {
+      setSalvando(false);
     }
   }
 
@@ -97,7 +111,7 @@ export default function Usuarios() {
 
       <Modal aberto={!!form} aoFechar={() => setForm(null)} titulo={form?.id ? "Editar usuário" : "Novo usuário"}
         rodape={<>
-          {form?.id && form.id !== eu.id && <BotaoConfirmar variante="secundario" className="mr-auto" aoConfirmar={() => apagar(form.id!)} textoConfirmar="Apagar mesmo?">Apagar conta</BotaoConfirmar>}
+          {form?.id && form.id !== eu.id && <Botao type="button" variante="secundario" className="mr-auto" onClick={() => pedirApagar(form)}>Apagar conta</Botao>}
           <Botao variante="secundario" onClick={() => setForm(null)}>Cancelar</Botao>
           <Botao type="submit" form="form-usuario" carregando={salvando}>Salvar</Botao>
         </>}>
@@ -152,6 +166,26 @@ export default function Usuarios() {
               </label>
             )}
           </form>
+        )}
+      </Modal>
+      <Modal aberto={!!apagando} aoFechar={() => setApagando(null)} titulo="Apagar conta" largura="max-w-md"
+        rodape={<>
+          <Botao variante="secundario" onClick={() => setApagando(null)}>Cancelar</Botao>
+          <BotaoConfirmar variante="perigo" aoConfirmar={apagar} textoConfirmar="Apagar mesmo?" carregando={salvando}>Apagar conta</BotaoConfirmar>
+        </>}>
+        {apagando && (
+          <div className="space-y-3 text-[15px]">
+            <p>Apagar a conta de <b>{apagando.u.nome}</b> ({apagando.u.usuario})? Ela não vai mais conseguir entrar.</p>
+            {(apagando.clientes > 0 || apagando.bairros > 0) ? (
+              <div>
+                <label className="rotulo" htmlFor="destino">{apagando.u.nome} tem {apagando.clientes} cliente(s) e {apagando.bairros} bairro(s). Passar para:</label>
+                <select id="destino" className="campo" value={apagando.destino} onChange={(e) => setApagando({ ...apagando, destino: e.target.value })}>
+                  {lista.filter((x) => x.id !== apagando.u.id && x.ativo).map((x) => <option key={x.id} value={x.id}>{x.nome}{x.id === eu.id ? " (eu)" : ""}</option>)}
+                </select>
+              </div>
+            ) : <p className="text-zinc-500">Não tem clientes nem bairros.</p>}
+            <p className="text-sm text-zinc-500">Os pedidos antigos continuam no sistema, mas ficam sem o nome do vendedor. Se quiser guardar o histórico de vendas dele, em vez de apagar, desmarque “Conta ativa”.</p>
+          </div>
         )}
       </Modal>
     </Exige>
