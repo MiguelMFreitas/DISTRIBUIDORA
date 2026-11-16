@@ -8,7 +8,8 @@ export type Permissao =
   | "conferencia"
   | "cadastros"
   | "financeiro"
-  | "moto";
+  | "moto"
+  | "abastecimento";
 
 export const PERMISSOES: { chave: Permissao; nome: string; descricao: string }[] = [
   { chave: "pedidos_criar", nome: "Fazer pedidos", descricao: "Usa o app do vendedor no celular" },
@@ -21,6 +22,7 @@ export const PERMISSOES: { chave: Permissao; nome: string; descricao: string }[]
   { chave: "cadastros", nome: "Rotas, motoristas e veículos", descricao: "Cadastros de apoio" },
   { chave: "financeiro", nome: "Financeiro", descricao: "Relatório semanal: compras, vendas, descontos e lucro" },
   { chave: "moto", nome: "Entregas de moto", descricao: "Vê os pedidos de moto no celular e marca entregue" },
+  { chave: "abastecimento", nome: "Abastecimento dos carros", descricao: "Cadastra os carros e lança os abastecimentos com fotos" },
 ];
 
 export type Perfil = {

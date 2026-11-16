@@ -17,6 +17,9 @@ export function pode(p: Perfil, perm: Permissao) {
 
 /** Para onde mandar o usuário quando ele entra */
 export function inicioDoUsuario(p: Perfil) {
-  const soVende = !p.admin && p.permissoes.length > 0 && p.permissoes.every((x) => x === "pedidos_criar");
-  return soVende ? "/vender" : "/painel";
+  const so = (perm: string) => !p.admin && p.permissoes.length > 0 && p.permissoes.every((x) => x === perm);
+  if (so("pedidos_criar")) return "/vender";
+  if (so("abastecimento")) return "/abastecer";
+  if (so("moto")) return "/moto";
+  return "/painel";
 }

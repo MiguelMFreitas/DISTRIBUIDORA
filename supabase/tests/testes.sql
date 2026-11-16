@@ -599,4 +599,55 @@ exception when others then
 end $$;
 reset role;
 
+
+-- ---------- 31. abastecimento ----------
+reset role;
+update perfis set permissoes = '{abastecimento}' where id = '00000000-0000-0000-0000-00000000000d';
+insert into veiculos (id, nome, placa, marca_km) values
+  ('80000000-0000-0000-0000-000000000001', 'STRADA', 'ABC1D23', true),
+  ('80000000-0000-0000-0000-000000000002', 'CAMINHÃO VELHO', 'XYZ9A99', false);
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000d');
+select registrar_abastecimento('80000000-0000-0000-0000-000000000001', current_date - 7, 10000, 300, 6, 'a/1.jpg', 'a/1k.jpg');
+select registrar_abastecimento('80000000-0000-0000-0000-000000000001', current_date, 10450, 250, 6.25, 'a/2.jpg', 'a/2k.jpg') as ab2 \gset
+select pg_temp.ok((select litros from abastecimentos where id = :'ab2') = 40, 'litros calculados (250 ÷ 6,25 = 40)');
+do $$ begin
+  perform registrar_abastecimento('80000000-0000-0000-0000-000000000001', current_date, 10400, 100, 6, 'a/3.jpg', 'a/3k.jpg');
+  raise exception 'FALHOU: aceitou km menor';
+exception when others then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'OK   km menor que a anterior é recusada';
+end $$;
+do $$ begin
+  perform registrar_abastecimento('80000000-0000-0000-0000-000000000001', current_date, 10500, 100, 6, 'a/3.jpg', null);
+  raise exception 'FALHOU: aceitou sem foto da km';
+exception when others then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'OK   carro que marca km exige a foto da km';
+end $$;
+select registrar_abastecimento('80000000-0000-0000-0000-000000000002', current_date, 99999, 200, 6, 'b/1.jpg', 'b/1k.jpg') as ab3 \gset
+select pg_temp.ok((select km is null and foto_km is null from abastecimentos where id = :'ab3'), 'carro que não marca km: guarda sem km');
+select relatorio_abastecimentos(current_date - 30, current_date) as rel \gset
+select pg_temp.ok((:'rel'::jsonb ->> 'total_valor')::numeric = 750, 'relatório soma o valor (300 + 250 + 200)');
+select pg_temp.ok(((:'rel'::jsonb -> 'lista') -> 1 ->> 'km_litro')::numeric = 11.25, 'km por litro (450 km ÷ 40 L = 11,25)');
+select pg_temp.ok((select count(*) from veiculos) >= 2, 'quem abastece vê os carros');
+insert into veiculos (nome, placa) values ('MOTO CG', 'MOT0A00');
+select pg_temp.ok(true, 'quem abastece cadastra carro');
+do $$ begin
+  perform 1 from pedidos;
+  if (select count(*) from pedidos) > 0 then raise exception 'FALHOU: abastecedor vê pedidos'; end if;
+  raise notice 'OK   quem só abastece não vê pedidos';
+end $$;
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  perform registrar_abastecimento('80000000-0000-0000-0000-000000000001', current_date, 11000, 100, 6, 'x', 'y');
+  raise exception 'FALHOU: vendedor abasteceu';
+exception when insufficient_privilege then raise notice 'OK   vendedor não lança abastecimento';
+end $$;
+select pg_temp.ok((select count(*) from abastecimentos) = 0, 'vendedor não vê abastecimentos');
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select apagar_abastecimento(:'ab3');
+select pg_temp.ok((select count(*) from abastecimentos) = 2, 'administrador apaga abastecimento');
+reset role;
+
 \warn '>>> TODOS OS TESTES PASSARAM'

@@ -24,12 +24,14 @@ const ABAS: Aba[] = [
       { nome: "nome", rotulo: "Nome / modelo", obrigatorio: true, largura: 3, maiusculo: true },
       { nome: "placa", rotulo: "Placa", largura: 1, maiusculo: true },
       { nome: "capacidade_kg", rotulo: "Capacidade (kg)", tipo: "numero", largura: 2, ajuda: "O romaneio avisa se passar" },
+      { nome: "marca_km", rotulo: "O painel marca a quilometragem", tipo: "bool", padrao: true },
       { nome: "ativo", rotulo: "Ativo", tipo: "bool", padrao: true },
     ],
     colunas: [
       { rotulo: "Veículo", valor: (l) => <span className="font-semibold">{l.nome}</span> },
       { rotulo: "Placa", valor: (l) => l.placa ?? "—" },
       { rotulo: "Capacidade", valor: (l) => (l.capacidade_kg ? `${Number(l.capacidade_kg).toLocaleString("pt-BR")} kg` : "—") },
+      { rotulo: "Marca km", valor: (l) => (l.marca_km === false ? <span className="text-amber-600">não</span> : "sim") },
     ],
   },
   {

@@ -32,6 +32,8 @@ const MENU: Item[] = [
   { href: "/cadastros", nome: "Motoristas, veículos…", icone: "🗂️", perm: ["cadastros", "produtos"] },
   { href: "/recibos", nome: "Recibos", icone: "🧾", perm: ["pedidos_ver_todos", "financeiro"] },
   { href: "/financeiro", nome: "Financeiro", icone: "💰", perm: "financeiro" },
+  { href: "/abastecer", nome: "Abastecer carro", icone: "⛽", perm: "abastecimento" },
+  { href: "/abastecimentos", nome: "Relatório de combustível", icone: "📈", perm: ["abastecimento", "financeiro"] },
   { href: "/vendedores", nome: "Vendedores", icone: "📊", admin: true },
   { href: "/ranking", nome: "Ranking", icone: "🏆", admin: true },
   { href: "/usuarios", nome: "Usuários", icone: "👥", admin: true },

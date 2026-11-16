@@ -64,6 +64,7 @@ export default function Financeiro() {
   const sb = supabaseNavegador();
   const [inicio, setInicio] = useState(() => segunda(new Date()));
   const [rel, setRel] = useState<Rel | null>(null);
+  const [combustivel, setCombustivel] = useState<{ valor: number; litros: number; quantidade: number } | null>(null);
   const fim = useMemo(() => { const f = new Date(inicio); f.setDate(f.getDate() + 6); return f; }, [inicio]);
   const estaSemana = iso(inicio) === iso(segunda(new Date()));
 
@@ -72,6 +73,11 @@ export default function Financeiro() {
     sb.rpc("relatorio_financeiro", { p_inicio: iso(inicio), p_fim: iso(fim) }).then(({ data, error }) => {
       if (error) return avisar(erroMsg(error), "erro");
       setRel(data as Rel);
+    });
+    // despesa com combustível (abastecimentos) da mesma semana
+    sb.rpc("relatorio_abastecimentos", { p_inicio: iso(inicio), p_fim: iso(fim) }).then(({ data, error }) => {
+      const d = data as { total_valor: number; total_litros: number; quantidade: number } | null;
+      setCombustivel(error || !d ? null : { valor: n(d.total_valor), litros: n(d.total_litros), quantidade: n(d.quantidade) });
     });
   }, [sb, inicio, fim]);
 
@@ -106,6 +112,10 @@ export default function Financeiro() {
             <Bloco titulo="Lucro estimado" valor={fmtMoeda(lucro)} sub={`margem ${pct(lucro, n(r.vendas_liquido))}`} tom={lucro >= 0 ? "bom" : "ruim"} />
             <Bloco titulo="Compras (entradas)" valor={fmtMoeda(r.compras)} sub={n(r.descontos_compra) > 0 ? `desconto do fornecedor ${fmtMoeda(r.descontos_compra)}` : "mercadoria que chegou"} />
             <Bloco titulo="Perdas e devoluções" valor={fmtMoeda(n(r.saidas_manuais) + n(r.devolucoes))} sub={`saídas ${fmtMoeda(r.saidas_manuais)} · devolvido ${fmtMoeda(r.devolucoes)}`} tom={n(r.saidas_manuais) > 0 ? "ruim" : undefined} />
+          </div>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+            <Bloco titulo="Despesas: combustível" valor={fmtMoeda(combustivel?.valor ?? 0)} sub={combustivel ? `${combustivel.quantidade} abastecimento(s) · ${combustivel.litros.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} L` : "—"} tom={(combustivel?.valor ?? 0) > 0 ? "aviso" : undefined} />
+            <Bloco titulo="Lucro depois das despesas" valor={fmtMoeda(lucro - (combustivel?.valor ?? 0))} sub="lucro estimado − combustível" tom={lucro - (combustivel?.valor ?? 0) >= 0 ? "bom" : "ruim"} />
           </div>
           <p className="-mt-3 text-xs text-zinc-500">
             Lucro estimado = vendas − custo dos produtos vendidos − saídas manuais (avaria, perda…). Vendas = pedidos liberados, carregados ou entregues; não conta cancelados, recusados nem os que aguardam aprovação. Devoluções são produtos que voltaram cheios na conferência e já voltaram para o estoque.

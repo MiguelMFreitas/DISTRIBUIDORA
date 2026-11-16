@@ -13,6 +13,7 @@ const MODELOS: { nome: string; permissoes: Permissao[]; desconto: number }[] = [
   { nome: "Escritório", permissoes: ["pedidos_ver_todos", "clientes", "cargas"], desconto: 0 },
   { nome: "Conferente", permissoes: ["conferencia"], desconto: 0 },
   { nome: "Motoboy", permissoes: ["moto"], desconto: 0 },
+  { nome: "Abastecimento", permissoes: ["abastecimento"], desconto: 0 },
 ];
 
 export default function Usuarios() {
