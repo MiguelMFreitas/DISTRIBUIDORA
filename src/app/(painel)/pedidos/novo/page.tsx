@@ -268,7 +268,7 @@ export default function NovoPedido() {
           </section>
         </div>
 
-        <aside className="lg:sticky lg:top-4 lg:self-start">
+        <aside className="lg:sticky lg:top-[calc(var(--topo-fixo)+1rem)] lg:self-start">
           <div className="cartao space-y-3 p-4">
             <h2 className="titulo text-lg">Resumo</h2>
             <div className="flex justify-between text-sm"><span className="text-zinc-500">Produtos</span><span>{validas.length}</span></div>

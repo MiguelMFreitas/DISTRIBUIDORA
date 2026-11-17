@@ -47,12 +47,12 @@ export const ehVisual = (x: unknown): x is IdVisual => VISUAIS.some((v) => v.id 
 export type IdLayout = "lateral" | "grupos" | "topo" | "areas";
 export type Layout = { id: IdLayout; nome: string; descricao: string; celular: string };
 export const LAYOUTS: Layout[] = [
-  { id: "lateral", nome: "Lateral", descricao: "O de hoje: todas as telas numa lista só, no menu da esquerda.", celular: "Botão “Menu” no alto abre a lista." },
+  { id: "lateral", nome: "Lateral", descricao: "O jeito antigo: todas as telas numa lista só, no menu da esquerda.", celular: "Botão “Menu” no alto abre a lista." },
   { id: "grupos", nome: "Menu por grupos", descricao: "Menu da esquerda separado em Vendas, Entregas, Clientes, Produtos, Gestão e Sistema, com busca de tela.", celular: "Barra de botões embaixo com as telas mais usadas e “Mais”." },
   { id: "topo", nome: "Menu no topo", descricao: "O menu vira uma barra em cima, com os grupos que abrem uma lista. A tela fica mais larga.", celular: "Barra de botões embaixo com as telas mais usadas e “Mais”." },
   { id: "areas", nome: "Áreas com abas", descricao: "Faixa fina com as áreas na esquerda; as telas de cada área ficam em abas no alto da página.", celular: "Áreas na barra de baixo e as telas em abas no alto." },
 ];
-export const LAYOUT_PADRAO: IdLayout = "lateral";
+export const LAYOUT_PADRAO: IdLayout = "topo";
 export const ehLayout = (x: unknown): x is IdLayout => LAYOUTS.some((v) => v.id === x);
 
 const LOCAL = "visual";

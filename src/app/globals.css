@@ -124,7 +124,7 @@
    o escolhido em html[data-layout]. --barra-baixo = altura da barra de
    baixo do celular (avisos e barras fixas sobem esse tanto).
    ===================================================================== */
-:root { --barra-baixo: 0px; }
+:root { --barra-baixo: 0px; --topo-fixo: 0px; }   /* --topo-fixo: altura da barra de cima fixa (Menu no topo, computador) */
 .lay-lateral, .lay-grupos, .lay-topo, .lay-areas { display: none; }
 html:not([data-layout]) .lay-lateral,
 [data-layout="lateral"] .lay-lateral, [data-layout="grupos"] .lay-grupos,
@@ -136,7 +136,8 @@ html:not([data-layout]) .lay-lateral,
 @media (min-width: 1024px) {
   html:not([data-layout]) .casca, [data-layout="lateral"] .casca { padding-left: 16rem; }
   [data-layout="grupos"] .casca { padding-left: 15rem; }
-  [data-layout="topo"] .casca { padding-top: 3.5rem; }
+  [data-layout="topo"] { --topo-fixo: 3.5rem; }
+  [data-layout="topo"] .casca { padding-top: var(--topo-fixo); }
   [data-layout="areas"] .casca { padding-left: 5.25rem; }
 }
 
