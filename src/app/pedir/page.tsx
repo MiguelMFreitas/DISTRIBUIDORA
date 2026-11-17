@@ -99,10 +99,10 @@ export default function Pedir() {
 
   return (
     <div className="min-h-dvh bg-zinc-100 pb-28 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-      <header className="bg-zinc-900 px-4 pb-4 pt-5 text-white">
+      <header className="border-b border-[var(--topo-borda)] bg-[var(--topo-fundo)] px-4 pb-4 pt-5 text-[var(--topo-texto)]">
         <div className="mx-auto max-w-xl">
           <h1 className="font-display text-2xl font-bold uppercase tracking-wide">{EMPRESA}</h1>
-          <p className="text-sm text-zinc-300">{cat?.aviso || "Faça seu pedido pelo celular."}</p>
+          <p className="text-sm opacity-80">{cat?.aviso || "Faça seu pedido pelo celular."}</p>
         </div>
       </header>
 

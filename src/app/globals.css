@@ -1,19 +1,122 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
+/* modo escuro: o visual "Escuro" (ou a classe .dark) */
+@custom-variant dark (&:where(.dark, .dark *, [data-visual="escuro"], [data-visual="escuro"] *));
 
 @theme {
   --font-sans: var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-barlow-condensed), "Arial Narrow", ui-sans-serif, sans-serif;
   --color-marca-50: #fff8eb;
   --color-marca-100: #fbefd9;
+  --color-marca-200: #f6dcaa;
   --color-marca-500: #d98a0b;
   --color-marca-600: #b97306;
   --color-marca-700: #925a07;
+  --color-marca-900: #4d3005;
 }
 
-@media (prefers-color-scheme: dark) {
-  html:not(.claro) { color-scheme: dark; }
+/* =====================================================================
+   VISUAIS (modelos escolhidos em Aparência; nomes em src/lib/visual.ts)
+   Cada um troca as cores da marca, os cinzas, o menu, a barra do topo,
+   as fontes e o jeito dos títulos e cartões.
+   ===================================================================== */
+:root {
+  color-scheme: light;
+  --menu-fundo: var(--color-zinc-900);
+  --menu-borda: transparent;
+  --menu-divisor: rgb(255 255 255 / 0.1);
+  --menu-marca: #fff;
+  --menu-texto: var(--color-zinc-300);
+  --menu-texto-forte: #fff;
+  --menu-texto-fraco: var(--color-zinc-400);
+  --menu-hover-fundo: rgb(255 255 255 / 0.1);
+  --menu-hover-texto: #fff;
+  --menu-ativo-fundo: var(--color-marca-500);
+  --menu-ativo-texto: #fff;
+  --topo-fundo: var(--color-zinc-900);
+  --topo-texto: #fff;
+  --topo-borda: transparent;
+}
+
+/* ---------- Azul moderno: claro, menu branco, letra comum ---------- */
+[data-visual="azul"] {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --color-marca-50: #eff6ff; --color-marca-100: #dbeafe; --color-marca-200: #bfdbfe;
+  --color-marca-500: #2563eb; --color-marca-600: #1d4ed8; --color-marca-700: #1e40af; --color-marca-900: #1e3a8a;
+  /* cinzas azulados */
+  --color-zinc-50: oklch(98.4% 0.003 247.858); --color-zinc-100: oklch(96.8% 0.007 247.896);
+  --color-zinc-200: oklch(92.9% 0.013 255.508); --color-zinc-300: oklch(86.9% 0.022 252.894);
+  --color-zinc-400: oklch(70.4% 0.04 256.788); --color-zinc-500: oklch(55.4% 0.046 257.417);
+  --color-zinc-600: oklch(44.6% 0.043 257.281); --color-zinc-700: oklch(37.2% 0.044 257.287);
+  --color-zinc-800: oklch(27.9% 0.041 260.031); --color-zinc-900: oklch(20.8% 0.042 265.755);
+  --color-zinc-950: oklch(12.9% 0.042 264.695);
+  --menu-fundo: #fff; --menu-borda: var(--color-zinc-200); --menu-divisor: var(--color-zinc-200);
+  --menu-marca: var(--color-marca-600); --menu-texto: var(--color-zinc-600); --menu-texto-forte: var(--color-zinc-900);
+  --menu-texto-fraco: var(--color-zinc-500); --menu-hover-fundo: var(--color-zinc-100); --menu-hover-texto: var(--color-zinc-900);
+  --menu-ativo-fundo: var(--color-marca-50); --menu-ativo-texto: var(--color-marca-700);
+  --topo-fundo: var(--color-marca-600); --topo-texto: #fff;
+}
+[data-visual="azul"] .cartao { border-radius: 1rem; box-shadow: 0 1px 2px rgb(15 23 42 / 0.05), 0 2px 6px rgb(15 23 42 / 0.04); }
+
+/* ---------- Verde bebidas: menu verde-escuro, títulos arredondados ---------- */
+[data-visual="verde"] {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-poppins), var(--font-inter), ui-sans-serif, sans-serif;
+  --color-marca-50: #f0fdf4; --color-marca-100: #dcfce7; --color-marca-200: #bbf7d0;
+  --color-marca-500: #16a34a; --color-marca-600: #15803d; --color-marca-700: #166534; --color-marca-900: #14532d;
+  --color-zinc-50: #f6f9f7; --color-zinc-100: #eef3ef;
+  --menu-fundo: #0c3b2a; --menu-divisor: rgb(255 255 255 / 0.12); --menu-marca: #fff;
+  --menu-texto: #c6e3d3; --menu-texto-forte: #fff; --menu-texto-fraco: #8fbfa5;
+  --menu-hover-fundo: rgb(255 255 255 / 0.08); --menu-hover-texto: #fff;
+  --menu-ativo-fundo: #16a34a; --menu-ativo-texto: #fff;
+  --topo-fundo: #0c3b2a; --topo-texto: #fff;
+}
+[data-visual="verde"] .cartao { border-radius: 1rem; border-color: #dfe7e1; }
+[data-visual="verde"] :is(.font-display, .titulo) { font-weight: 600; }
+
+/* ---------- Vermelho forte: vermelho, cinza quente, títulos fortes ---------- */
+[data-visual="vermelho"] {
+  --color-marca-50: #fef2f2; --color-marca-100: #fee2e2; --color-marca-200: #fecaca;
+  --color-marca-500: #dc2626; --color-marca-600: #b91c1c; --color-marca-700: #991b1b; --color-marca-900: #7f1d1d;
+  /* cinzas quentes */
+  --color-zinc-50: oklch(98.5% 0.001 106.423); --color-zinc-100: oklch(97% 0.001 106.424);
+  --color-zinc-200: oklch(92.3% 0.003 48.717); --color-zinc-300: oklch(86.9% 0.005 56.366);
+  --color-zinc-400: oklch(70.9% 0.01 56.259); --color-zinc-500: oklch(55.3% 0.013 58.071);
+  --color-zinc-600: oklch(44.4% 0.011 73.639); --color-zinc-700: oklch(37.4% 0.01 67.558);
+  --color-zinc-800: oklch(26.8% 0.007 34.298); --color-zinc-900: oklch(21.6% 0.006 56.043);
+  --color-zinc-950: oklch(14.7% 0.004 49.25);
+  /* menu vermelho-vinho com destaque branco */
+  --menu-fundo: #8f1515; --menu-divisor: rgb(255 255 255 / 0.15); --menu-marca: #fff;
+  --menu-texto: #fde2e2; --menu-texto-forte: #fff; --menu-texto-fraco: #f5a9a9;
+  --menu-hover-fundo: rgb(0 0 0 / 0.18); --menu-hover-texto: #fff;
+  --menu-ativo-fundo: #fff; --menu-ativo-texto: #b91c1c;
+  --topo-fundo: #b91c1c;
+}
+[data-visual="vermelho"] .cartao { border-radius: 0.5rem; border-top: 3px solid var(--color-marca-500); }
+
+/* ---------- Escuro: fundo escuro e amarelo ---------- */
+[data-visual="escuro"] {
+  color-scheme: dark;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --color-marca-50: #fffbeb; --color-marca-100: #fef3c7; --color-marca-200: #fde68a;
+  --color-marca-500: #f59e0b; --color-marca-600: #d97706; --color-marca-700: #b45309; --color-marca-900: #78350f;
+  --menu-fundo: #09090b; --menu-borda: var(--color-zinc-800); --menu-divisor: var(--color-zinc-800);
+  --menu-marca: var(--color-marca-500); --menu-texto: var(--color-zinc-400); --menu-texto-forte: var(--color-zinc-100);
+  --menu-texto-fraco: var(--color-zinc-500); --menu-hover-fundo: var(--color-zinc-900); --menu-hover-texto: #fff;
+  --menu-ativo-fundo: var(--color-marca-500); --menu-ativo-texto: #18181b;
+  --topo-fundo: #09090b; --topo-texto: #fafafa; --topo-borda: var(--color-zinc-800);
+}
+/* amarelo com letra escura (branco no amarelo não dá para ler) */
+[data-visual="escuro"] :is(.bg-marca-500, .bg-marca-600) { color: #18181b; }
+
+/* títulos em letra comum (sem caixa alta) nos visuais Azul, Verde e Escuro */
+:is([data-visual="azul"], [data-visual="verde"], [data-visual="escuro"]) :is(.font-display, .titulo) {
+  text-transform: none; letter-spacing: -0.015em;
+}
+:is([data-visual="azul"], [data-visual="verde"], [data-visual="escuro"]) .rotulo {
+  text-transform: none; letter-spacing: 0; font-size: 0.8125rem;
 }
 
 html, body { height: 100%; }
@@ -37,6 +140,9 @@ input[type="number"] { -moz-appearance: textfield; }
 
 @media print {
   .nao-imprimir { display: none !important; }
+  /* papel sempre claro, mesmo no visual Escuro */
+  [data-visual="escuro"] { color-scheme: light; }
+  [data-visual="escuro"] * { background-color: transparent !important; color: #111 !important; border-color: #ccc !important; }
   body { background: #fff !important; color: #111 !important; }
   .cartao { break-inside: avoid; }
 }

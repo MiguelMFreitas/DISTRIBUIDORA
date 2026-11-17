@@ -13,6 +13,7 @@ import {
   type Catalogo, type ItemPedido, type PedidoEnviado, type PedidoFila,
 } from "@/lib/offline";
 import { Avisos, avisar } from "@/components/ui";
+import { BarraPrevia, SincronizaVisual } from "@/components/visual";
 import { NOME_TURNO, turnoAgora, type Turno } from "@/lib/agenda";
 
 type Tela = "inicio" | "cliente" | "itens" | "revisar" | "pronto";
@@ -346,7 +347,7 @@ export default function Vender() {
   const voltar = () => setTela(tela === "revisar" ? "itens" : tela === "itens" ? (r.itens.length ? "inicio" : "cliente") : "inicio");
 
   const topo = (
-    <header className="sticky top-0 z-30 bg-zinc-900 text-white">
+    <header className="sticky top-0 z-30 border-b border-[var(--topo-borda)] bg-[var(--topo-fundo)] text-[var(--topo-texto)]">
       <div className="mx-auto flex max-w-xl items-center gap-2 px-4 py-3">
         {tela !== "inicio" && tela !== "pronto" ? (
           <button onClick={voltar} className="-ml-2 rounded-lg px-2 py-1 text-lg" aria-label="Voltar">←</button>
@@ -355,7 +356,7 @@ export default function Vender() {
           <div className="truncate font-display text-xl font-bold uppercase tracking-wide">
             {tela === "inicio" || tela === "pronto" ? "Pedidos" : tela === "cliente" ? "Escolha o cliente" : tela === "revisar" ? "Revisar pedido" : r.cliente?.razao_social}
           </div>
-          {tela === "itens" && <button className="text-xs text-zinc-300 underline" onClick={() => { setBusca(""); setTela("cliente"); }}>trocar cliente</button>}
+          {tela === "itens" && <button className="text-xs underline opacity-80" onClick={() => { setBusca(""); setTela("cliente"); }}>trocar cliente</button>}
         </div>
         <span className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${online ? "bg-emerald-500/20 text-emerald-300" : "bg-red-500/30 text-red-200"}`}>
           <span className={`size-2 rounded-full ${online ? "bg-emerald-400" : "bg-red-400"}`} />{online ? "Online" : "Sem internet"}
@@ -683,6 +684,8 @@ export default function Vender() {
         </ul>
       </ConfirmarSenha>
       <Avisos />
+      <SincronizaVisual />
+      <BarraPrevia admin={!!perfil?.admin} />
     </div>
   );
 }
