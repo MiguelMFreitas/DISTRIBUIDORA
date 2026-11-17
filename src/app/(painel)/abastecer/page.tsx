@@ -6,9 +6,12 @@ import { alfa, erroMsg, fmtData, fmtMoeda, hojeISO } from "@/lib/formato";
 import { Botao, BotaoConfirmar, Cabecalho, Modal, Vazio, avisar } from "@/components/ui";
 import { Exige, usePerfil } from "@/components/perfil-contexto";
 import { comprimirFoto } from "@/lib/foto";
+import { COMBUSTIVEIS, LISTA_COMBUSTIVEIS, nomesCombustiveis, type Combustivel } from "@/lib/tipos";
 
-type Carro = { id: string; nome: string; placa: string | null; marca_km: boolean; ativo: boolean };
-type Ab = { id: string; veiculo_id: string; data: string; km: number | null; valor: number; preco_litro: number; litros: number; criado_em: string; usuario_id: string | null };
+type Carro = { id: string; nome: string; placa: string | null; marca_km: boolean; ativo: boolean; combustiveis: Combustivel[] };
+type Ab = { id: string; veiculo_id: string; data: string; km: number | null; valor: number; preco_litro: number; litros: number; combustivel: Combustivel | null; criado_em: string; usuario_id: string | null };
+/** os três números do abastecimento: o usuário põe dois, o terceiro é calculado */
+type Num = "valor" | "preco" | "litros";
 
 const BUCKET = "abastecimentos";
 const fmtKm = (n: number | null | undefined) => (n == null ? "—" : `${Number(n).toLocaleString("pt-BR")} km`);
@@ -53,8 +56,9 @@ export default function Abastecer() {
   // formulário
   const [data, setData] = useState(hojeISO());
   const [km, setKm] = useState("");
-  const [valor, setValor] = useState("");
-  const [preco, setPreco] = useState("");
+  const [txt, setTxt] = useState<Record<Num, string>>({ valor: "", preco: "", litros: "" });
+  const [editados, setEditados] = useState<Num[]>([]); // ordem em que o usuário mexeu
+  const [combustivel, setCombustivel] = useState<Combustivel | null>(null);
   const [obs, setObs] = useState("");
   const [fotoPainel, setFotoPainel] = useState<File | null>(null);
   const [fotoKm, setFotoKm] = useState<File | null>(null);
@@ -63,8 +67,8 @@ export default function Abastecer() {
   const carregar = useCallback(async () => {
     const desde = new Date(); desde.setDate(desde.getDate() - 120);
     const [{ data: c, error }, { data: a }] = await Promise.all([
-      sb.from("veiculos").select("id, nome, placa, marca_km, ativo"),
-      sb.from("abastecimentos").select("id, veiculo_id, data, km, valor, preco_litro, litros, criado_em, usuario_id").gte("data", isoLocal(desde)).order("data", { ascending: false }).order("criado_em", { ascending: false }),
+      sb.from("veiculos").select("id, nome, placa, marca_km, ativo, combustiveis"),
+      sb.from("abastecimentos").select("id, veiculo_id, data, km, valor, preco_litro, litros, combustivel, criado_em, usuario_id").gte("data", isoLocal(desde)).order("data", { ascending: false }).order("criado_em", { ascending: false }),
     ]);
     if (error) avisar(erroMsg(error), "erro");
     setCarros(((c ?? []) as Carro[]).sort((x, y) => alfa(x.nome, y.nome)));
@@ -84,19 +88,39 @@ export default function Abastecer() {
   const feitosSemana = ativos.filter((c) => ultimo[c.id] && ultimo[c.id].data >= semana).length;
 
   function abrir(c: Carro) {
-    setCarro(c); setData(hojeISO()); setKm(""); setValor(""); setPreco(""); setObs(""); setFotoPainel(null); setFotoKm(null);
+    setCarro(c); setData(hojeISO()); setKm(""); setTxt({ valor: "", preco: "", litros: "" }); setEditados([]); setObs(""); setFotoPainel(null); setFotoKm(null);
+    // um combustível só: já vem marcado; flex: escolhe (vem o último que usou)
+    const ult = abs.find((a) => a.veiculo_id === c.id && a.combustivel)?.combustivel ?? null;
+    setCombustivel(c.combustiveis?.length === 1 ? c.combustiveis[0] : ult && c.combustiveis?.includes(ult) ? ult : null);
   }
 
-  const v = num(valor), p = num(preco), k = km ? num(km) : null;
-  const litros = v > 0 && p > 0 ? v / p : 0;
+  // o campo automático é o que não está entre os dois últimos que o usuário mexeu
+  const auto: Num = editados.length >= 2 ? (["valor", "preco", "litros"] as Num[]).find((x) => !editados.slice(-2).includes(x))!
+    : (["litros", "preco", "valor"] as Num[]).find((x) => !editados.includes(x))!;
+  const digitado = { valor: num(txt.valor), preco: num(txt.preco), litros: num(txt.litros) };
+  const calc = (x: Num) => {
+    const { valor: dv, preco: dp, litros: dl } = digitado;
+    if (x === "litros") return dv > 0 && dp > 0 ? dv / dp : 0;
+    if (x === "preco") return dv > 0 && dl > 0 ? dv / dl : 0;
+    return dp > 0 && dl > 0 ? dp * dl : 0;
+  };
+  const v = auto === "valor" ? calc("valor") : digitado.valor;
+  const p = auto === "preco" ? calc("preco") : digitado.preco;
+  const litros = auto === "litros" ? calc("litros") : digitado.litros;
+  const k = km ? num(km) : null;
+  function mudarNum(x: Num, t: string) {
+    setTxt((o) => ({ ...o, [x]: t }));
+    setEditados((e) => [...e.filter((y) => y !== x), x]);
+  }
+  const mostrarAuto = (x: Num, n: number) => (n > 0 ? (x === "litros" ? n.toLocaleString("pt-BR", { maximumFractionDigits: 2 }) : n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: x === "preco" ? 3 : 2 })) : "");
   const kmAnt = carro ? ultimoKm(carro.id) : null;
 
   async function salvar() {
     if (!carro) return;
     const falta = [
       carro.marca_km && !k && "quilometragem",
-      !(v > 0) && "valor",
-      !(p > 0) && "preço do litro",
+      carro.combustiveis?.length > 0 && !combustivel && "combustível",
+      !(v > 0 && p > 0 && litros > 0) && "dois destes: valor pago, preço do litro ou litros",
       !fotoPainel && "foto do painel",
       carro.marca_km && !fotoKm && "foto da quilometragem",
     ].filter(Boolean);
@@ -117,7 +141,10 @@ export default function Abastecer() {
       const caminhoPainel = await subir(fotoPainel!, "painel");
       const caminhoKm = carro.marca_km && fotoKm ? await subir(fotoKm, "km") : null;
       const { error } = await sb.rpc("registrar_abastecimento", {
-        p_veiculo: carro.id, p_data: data, p_km: carro.marca_km ? k : null, p_valor: v, p_preco_litro: p,
+        p_veiculo: carro.id, p_data: data, p_km: carro.marca_km ? k : null,
+        // manda só os dois que a pessoa digitou; o banco calcula o terceiro igual à tela
+        p_valor: auto === "valor" ? null : digitado.valor, p_preco_litro: auto === "preco" ? null : digitado.preco, p_litros: auto === "litros" ? null : digitado.litros,
+        p_combustivel: combustivel,
         p_foto_painel: caminhoPainel, p_foto_km: caminhoKm, p_observacao: obs || null,
       });
       if (error) throw new Error(erroMsg(error));
@@ -144,8 +171,9 @@ export default function Abastecer() {
   async function salvarCarro(e: React.FormEvent) {
     e.preventDefault();
     if (!editCarro) return;
-    const dados = { nome: (editCarro.nome ?? "").trim().toLocaleUpperCase("pt-BR"), placa: (editCarro.placa ?? "").trim().toUpperCase() || null, marca_km: editCarro.marca_km ?? true, ativo: editCarro.ativo ?? true };
+    const dados = { nome: (editCarro.nome ?? "").trim().toLocaleUpperCase("pt-BR"), placa: (editCarro.placa ?? "").trim().toUpperCase() || null, marca_km: editCarro.marca_km ?? true, ativo: editCarro.ativo ?? true, combustiveis: editCarro.combustiveis ?? [] };
     if (!dados.nome) return avisar("Informe o nome do carro.", "erro");
+    if (!dados.combustiveis.length) return avisar("Marque o combustível do carro.", "erro");
     const { error } = editCarro.id ? await sb.from("veiculos").update(dados).eq("id", editCarro.id) : await sb.from("veiculos").insert(dados);
     if (error) return avisar(erroMsg(error), "erro");
     avisar(editCarro.id ? "Carro atualizado" : `${dados.nome} cadastrado`);
@@ -161,7 +189,7 @@ export default function Abastecer() {
     <Exige perm="abastecimento">
       <div className="mx-auto max-w-xl">
         <Cabecalho titulo="⛽ Abastecer" sub={ativos.length ? `Semana de ${fmtData(semana)}: ${feitosSemana} de ${ativos.length} carro(s) abastecido(s)` : "Cadastre os carros para começar."}>
-          <Botao variante="secundario" onClick={() => setEditCarro({ marca_km: true, ativo: true })}>+ Carro</Botao>
+          <Botao variante="secundario" onClick={() => setEditCarro({ marca_km: true, ativo: true, combustiveis: [] })}>+ Carro</Botao>
         </Cabecalho>
 
         {carregado && ativos.length === 0 && <Vazio>Nenhum carro ainda. Toque em “+ Carro” e coloque o nome e a placa.</Vazio>}
@@ -175,7 +203,7 @@ export default function Abastecer() {
                 <div className={`grid size-11 shrink-0 place-items-center rounded-full text-xl ${feito ? "bg-emerald-100 dark:bg-emerald-500/20" : "bg-amber-100 dark:bg-amber-500/20"}`}>{feito ? "✅" : "⛽"}</div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-lg font-bold leading-tight">{c.nome}</div>
-                  {c.placa && <div className="text-sm font-semibold tracking-wide text-zinc-600 dark:text-zinc-300">{c.placa}</div>}
+                  <div className="text-sm font-semibold tracking-wide text-zinc-600 dark:text-zinc-300">{[c.placa, nomesCombustiveis(c.combustiveis)].filter(Boolean).join(" · ")}</div>
                   <div className="text-sm text-zinc-500">
                     {u ? <>Último: {fmtData(u.data)} · {fmtMoeda(u.valor)}{c.marca_km && ultimoKm(c.id) != null ? ` · ${fmtKm(ultimoKm(c.id))}` : ""}</> : "Ainda não abasteceu"}
                     {!c.marca_km && <span className="text-amber-600"> · não marca km</span>}
@@ -197,7 +225,7 @@ export default function Abastecer() {
             <div className="cartao divide-y divide-zinc-100 dark:divide-zinc-800">
               {recentes.map((a) => (
                 <div key={a.id} className="flex items-center justify-between gap-2 p-3 text-sm">
-                  <div><b>{nomeCarro(a.veiculo_id)}</b> · {fmtData(a.data)}<div className="text-zinc-500">{fmtL(Number(a.litros))} a {fmtMoeda(a.preco_litro)}{a.km != null ? ` · ${fmtKm(a.km)}` : ""}</div></div>
+                  <div><b>{nomeCarro(a.veiculo_id)}</b> · {fmtData(a.data)}<div className="text-zinc-500">{fmtL(Number(a.litros))}{a.combustivel ? ` de ${COMBUSTIVEIS[a.combustivel].toLowerCase()}` : ""} a {fmtMoeda(a.preco_litro)}{a.km != null ? ` · ${fmtKm(a.km)}` : ""}</div></div>
                   <div className="flex items-center gap-2">
                     <b>{fmtMoeda(a.valor)}</b>
                     {(eu.admin || (a.usuario_id === eu.id && isoLocal(new Date(a.criado_em)) === hojeISO())) &&
@@ -225,13 +253,45 @@ export default function Abastecer() {
                 {kmAnt != null && k != null && k > 0 && <span className={`text-sm ${k < kmAnt ? "font-semibold text-red-600" : "text-zinc-500"}`}>{k < kmAnt ? `Menor que o último (${fmtKm(kmAnt)})` : `Rodou ${fmtKm(k - kmAnt)} desde o último`}</span>}
               </label>
             ) : <p className="rounded-lg bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">Este carro não marca a quilometragem: só o valor, o preço do litro e a foto do painel.</p>}
-            <div className="grid grid-cols-2 gap-3">
-              <label className="block"><span className="rotulo">Valor pago (R$)</span><input className={campo} inputMode="decimal" placeholder="200,00" value={valor} onChange={(e) => setValor(e.target.value)} /></label>
-              <label className="block"><span className="rotulo">Preço do litro (R$)</span><input className={campo} inputMode="decimal" placeholder="6,29" value={preco} onChange={(e) => setPreco(e.target.value)} /></label>
+            {(() => {
+              const opcoes = carro.combustiveis?.length ? LISTA_COMBUSTIVEIS.filter((o) => carro.combustiveis.includes(o.valor)) : LISTA_COMBUSTIVEIS;
+              return (
+                <div>
+                  <span className="rotulo">Combustível</span>
+                  <div className={`grid gap-2 ${opcoes.length >= 4 ? "grid-cols-2" : opcoes.length === 3 ? "grid-cols-3" : opcoes.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
+                    {opcoes.map((o) => (
+                      <button key={o.valor} type="button" aria-pressed={combustivel === o.valor} onClick={() => setCombustivel(o.valor)}
+                        className={`h-12 rounded-xl border-2 font-bold ${combustivel === o.valor ? "border-marca-500 bg-marca-50 dark:bg-marca-500/15" : "border-zinc-300 dark:border-zinc-700"}`}>{o.nome}</button>
+                    ))}
+                  </div>
+                  {!carro.combustiveis?.length && <p className="mt-1 text-xs text-amber-600">Este carro ainda não tem o combustível no cadastro. Toque em “Editar” no carro para marcar.</p>}
+                </div>
+              );
+            })()}
+            <div>
+              <p className="mb-1 text-sm text-zinc-500">Preencha <b>dois</b>: o terceiro é calculado sozinho.</p>
+              <div className="grid grid-cols-3 gap-2">
+                {([["valor", "Valor pago (R$)", "Valor R$", "200,00"], ["preco", "Preço do litro (R$)", "R$ litro", "6,29"], ["litros", "Litros", "Litros", "31,8"]] as [Num, string, string, string][]).map(([x, rot, curto, ex]) => {
+                  const ehAuto = auto === x;
+                  const n = x === "valor" ? v : x === "preco" ? p : litros;
+                  return (
+                    <label key={x} className="block">
+                      <span className="rotulo whitespace-nowrap">{curto}</span>
+                      <input className={`campo h-12! px-2! text-lg! ${ehAuto ? "border-emerald-500! bg-emerald-50! font-bold text-emerald-900! dark:bg-emerald-500/10! dark:text-emerald-200!" : ""}`}
+                        inputMode="decimal" aria-label={rot} placeholder={ehAuto ? "automático" : ex}
+                        value={ehAuto ? mostrarAuto(x, n) : txt[x]}
+                        onFocus={(e) => ehAuto && e.target.select()}
+                        onChange={(e) => mudarNum(x, e.target.value)} />
+                      <span className={`text-xs font-semibold ${ehAuto ? "text-emerald-700 dark:text-emerald-300" : "text-transparent"}`}>{ehAuto ? "⚙ automático" : "."}</span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
             <div className="rounded-xl bg-marca-50 p-3 text-center dark:bg-marca-500/10">
-              <div className="text-xs font-semibold uppercase text-zinc-500">Litros colocados</div>
-              <div className="font-display text-4xl font-bold">{litros ? fmtL(litros) : "—"}</div>
+              <div className="text-xs font-semibold uppercase text-zinc-500">Resumo</div>
+              <div className="font-display text-3xl font-bold">{litros > 0 && v > 0 ? `${fmtL(litros)} · ${fmtMoeda(v)}` : "—"}</div>
+              {p > 0 && litros > 0 && <div className="text-sm text-zinc-500">{fmtMoeda(p)} o litro{combustivel ? ` de ${COMBUSTIVEIS[combustivel].toLowerCase()}` : ""}</div>}
             </div>
             <div className={`grid gap-3 ${carro.marca_km ? "grid-cols-2" : ""}`}>
               <CampoFoto rotulo="Foto do painel" arquivo={fotoPainel} aoEscolher={setFotoPainel} />
@@ -252,6 +312,21 @@ export default function Abastecer() {
           <form id="form-carro" onSubmit={salvarCarro} className="space-y-3">
             <label className="block"><span className="rotulo">Carro</span><input className="campo uppercase" autoFocus placeholder="ex.: STRADA BRANCA" value={editCarro.nome ?? ""} onChange={(e) => setEditCarro({ ...editCarro, nome: e.target.value })} /></label>
             <label className="block"><span className="rotulo">Placa</span><input className="campo uppercase" placeholder="ABC1D23" value={editCarro.placa ?? ""} onChange={(e) => setEditCarro({ ...editCarro, placa: e.target.value })} /></label>
+            <div>
+              <span className="rotulo">Combustível</span>
+              <div className="grid grid-cols-2 gap-2" role="group" aria-label="Combustível do carro">
+                {LISTA_COMBUSTIVEIS.map((o) => {
+                  const lista = editCarro.combustiveis ?? [];
+                  const marcado = lista.includes(o.valor);
+                  return (
+                    <button key={o.valor} type="button" aria-pressed={marcado}
+                      onClick={() => setEditCarro({ ...editCarro, combustiveis: marcado ? lista.filter((x) => x !== o.valor) : [...lista, o.valor] })}
+                      className={`h-12 rounded-xl border-2 font-bold ${marcado ? "border-marca-500 bg-marca-50 dark:bg-marca-500/10" : "border-zinc-300 dark:border-zinc-700"}`}>{marcado ? "✓ " : ""}{o.nome}</button>
+                  );
+                })}
+              </div>
+              <p className="mt-1 text-xs text-zinc-500">Carro flex: marque Etanol e Gasolina. Na hora de abastecer, escolhe qual colocou.</p>
+            </div>
             <div>
               <span className="rotulo">O painel está marcando a quilometragem?</span>
               <div className="grid grid-cols-2 gap-2">

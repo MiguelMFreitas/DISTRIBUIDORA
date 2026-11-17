@@ -608,24 +608,24 @@ insert into veiculos (id, nome, placa, marca_km) values
   ('80000000-0000-0000-0000-000000000002', 'CAMINHÃO VELHO', 'XYZ9A99', false);
 set role authenticated;
 select pg_temp.como('00000000-0000-0000-0000-00000000000d');
-select registrar_abastecimento('80000000-0000-0000-0000-000000000001', current_date - 7, 10000, 300, 6, 'a/1.jpg', 'a/1k.jpg');
-select registrar_abastecimento('80000000-0000-0000-0000-000000000001', current_date, 10450, 250, 6.25, 'a/2.jpg', 'a/2k.jpg') as ab2 \gset
+select registrar_abastecimento(p_veiculo => '80000000-0000-0000-0000-000000000001', p_data => current_date - 7, p_km => 10000, p_valor => 300, p_preco_litro => 6, p_litros => null, p_combustivel => null, p_foto_painel => 'a/1.jpg', p_foto_km => 'a/1k.jpg');
+select registrar_abastecimento(p_veiculo => '80000000-0000-0000-0000-000000000001', p_data => current_date, p_km => 10450, p_valor => 250, p_preco_litro => 6.25, p_litros => null, p_combustivel => null, p_foto_painel => 'a/2.jpg', p_foto_km => 'a/2k.jpg') as ab2 \gset
 select pg_temp.ok((select litros from abastecimentos where id = :'ab2') = 40, 'litros calculados (250 ÷ 6,25 = 40)');
 do $$ begin
-  perform registrar_abastecimento('80000000-0000-0000-0000-000000000001', current_date, 10400, 100, 6, 'a/3.jpg', 'a/3k.jpg');
+  perform registrar_abastecimento('80000000-0000-0000-0000-000000000001', current_date, 10400, 100, 6, null, null, 'a/3.jpg', 'a/3k.jpg');
   raise exception 'FALHOU: aceitou km menor';
 exception when others then
   if sqlerrm like 'FALHOU%' then raise; end if;
   raise notice 'OK   km menor que a anterior é recusada';
 end $$;
 do $$ begin
-  perform registrar_abastecimento('80000000-0000-0000-0000-000000000001', current_date, 10500, 100, 6, 'a/3.jpg', null);
+  perform registrar_abastecimento('80000000-0000-0000-0000-000000000001', current_date, 10500, 100, 6, null, null, 'a/3.jpg', null);
   raise exception 'FALHOU: aceitou sem foto da km';
 exception when others then
   if sqlerrm like 'FALHOU%' then raise; end if;
   raise notice 'OK   carro que marca km exige a foto da km';
 end $$;
-select registrar_abastecimento('80000000-0000-0000-0000-000000000002', current_date, 99999, 200, 6, 'b/1.jpg', 'b/1k.jpg') as ab3 \gset
+select registrar_abastecimento('80000000-0000-0000-0000-000000000002', current_date, 99999, 200, 6, null, null, 'b/1.jpg', 'b/1k.jpg') as ab3 \gset
 select pg_temp.ok((select km is null and foto_km is null from abastecimentos where id = :'ab3'), 'carro que não marca km: guarda sem km');
 select relatorio_abastecimentos(current_date - 30, current_date) as rel \gset
 select pg_temp.ok((:'rel'::jsonb ->> 'total_valor')::numeric = 750, 'relatório soma o valor (300 + 250 + 200)');
@@ -640,7 +640,7 @@ do $$ begin
 end $$;
 select pg_temp.como('00000000-0000-0000-0000-00000000000b');
 do $$ begin
-  perform registrar_abastecimento('80000000-0000-0000-0000-000000000001', current_date, 11000, 100, 6, 'x', 'y');
+  perform registrar_abastecimento('80000000-0000-0000-0000-000000000001', current_date, 11000, 100, 6, null, null, 'x', 'y');
   raise exception 'FALHOU: vendedor abasteceu';
 exception when insufficient_privilege then raise notice 'OK   vendedor não lança abastecimento';
 end $$;
@@ -649,5 +649,51 @@ select pg_temp.como('00000000-0000-0000-0000-00000000000a');
 select apagar_abastecimento(:'ab3');
 select pg_temp.ok((select count(*) from abastecimentos) = 2, 'administrador apaga abastecimento');
 reset role;
+
+
+-- ---------- 32. combustível e "dois de três" ----------
+reset role;
+insert into veiculos (id, nome, placa, combustiveis) values ('80000000-0000-0000-0000-000000000003', 'GOL FLEX', 'FLX1A11', '{etanol,gasolina}');
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000d');
+-- valor + litros → preço calculado
+select registrar_abastecimento('80000000-0000-0000-0000-000000000003', current_date - 3, 50000, 200, null, 40, 'etanol', 'f/1.jpg', 'f/1k.jpg') as f1 \gset
+select pg_temp.ok((select preco_litro = 5 and litros = 40 and combustivel = 'etanol' from abastecimentos where id = :'f1'), 'valor + litros: preço do litro calculado (R$ 5,00)');
+-- preço + litros → valor calculado
+select registrar_abastecimento('80000000-0000-0000-0000-000000000003', current_date - 2, 50300, null, 6.2, 30, 'gasolina', 'f/2.jpg', 'f/2k.jpg') as f2 \gset
+select pg_temp.ok((select valor = 186 from abastecimentos where id = :'f2'), 'preço + litros: valor calculado (R$ 186,00)');
+-- valor + preço → litros calculado
+select registrar_abastecimento('80000000-0000-0000-0000-000000000003', current_date - 1, 50600, 120, 6, null, 'gasolina', 'f/3.jpg', 'f/3k.jpg') as f3 \gset
+select pg_temp.ok((select litros = 20 from abastecimentos where id = :'f3'), 'valor + preço: litros calculados (20 L)');
+do $$ begin
+  perform registrar_abastecimento('80000000-0000-0000-0000-000000000003', current_date, 50900, 100, null, null, 'gasolina', 'x', 'y');
+  raise exception 'FALHOU: aceitou só um campo';
+exception when others then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'OK   precisa de dois dos três campos';
+end $$;
+do $$ begin
+  perform registrar_abastecimento('80000000-0000-0000-0000-000000000003', current_date, 50900, 100, 6, null, 'diesel', 'x', 'y');
+  raise exception 'FALHOU: aceitou diesel no flex';
+exception when others then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'OK   combustível que o carro não usa é recusado';
+end $$;
+do $$ begin
+  perform registrar_abastecimento('80000000-0000-0000-0000-000000000003', current_date, 50900, 100, 6, null, null, 'x', 'y');
+  raise exception 'FALHOU: aceitou sem combustível';
+exception when others then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'OK   carro com combustível cadastrado exige escolher';
+end $$;
+select relatorio_abastecimentos(current_date - 5, current_date) -> 'por_combustivel' as pc \gset
+select pg_temp.ok((select count(*) from jsonb_array_elements(:'pc'::jsonb) e where e->>'combustivel' in ('etanol', 'gasolina')) = 2
+              and (select (e->>'valor')::numeric from jsonb_array_elements(:'pc'::jsonb) e where e->>'combustivel' = 'gasolina') = 306, 'relatório separa por combustível (gasolina R$ 306)');
+reset role;
+do $$ begin
+  update veiculos set combustiveis = '{querosene}' where id = '80000000-0000-0000-0000-000000000003';
+  raise exception 'FALHOU: aceitou combustível inválido no carro';
+exception when check_violation then raise notice 'OK   carro só aceita etanol, gasolina, diesel ou gás';
+end $$;
 
 \warn '>>> TODOS OS TESTES PASSARAM'

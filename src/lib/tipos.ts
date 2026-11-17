@@ -108,6 +108,11 @@ export type Pedido = {
   entregue_em: string | null;
 };
 
+export type Combustivel = "etanol" | "gasolina" | "diesel" | "gnv";
+export const COMBUSTIVEIS: Record<Combustivel, string> = { etanol: "Etanol", gasolina: "Gasolina", diesel: "Diesel", gnv: "Gás (GNV)" };
+export const LISTA_COMBUSTIVEIS = (Object.keys(COMBUSTIVEIS) as Combustivel[]).map((valor) => ({ valor, nome: COMBUSTIVEIS[valor] }));
+export const nomesCombustiveis = (l: string[] | null | undefined) => (l ?? []).map((c) => COMBUSTIVEIS[c as Combustivel] ?? c).join(" / ");
+
 export type TipoEntrega = "caminhao" | "moto" | "balcao";
 export const ENTREGAS: Record<TipoEntrega, { nome: string; icone: string; ajuda: string }> = {
   caminhao: { nome: "Caminhão", icone: "🚚", ajuda: "vai numa carga" },

@@ -5,13 +5,16 @@ import { supabaseNavegador } from "@/lib/supabase/client";
 import { erroMsg, fmtData, fmtMoeda } from "@/lib/formato";
 import { Botao, BotaoConfirmar, Cabecalho, Modal, Vazio, avisar } from "@/components/ui";
 import { usePerfil, usePode } from "@/components/perfil-contexto";
+import { COMBUSTIVEIS, type Combustivel } from "@/lib/tipos";
 
 type Linha = {
   id: string; veiculo_id: string; veiculo: string; placa: string | null; data: string; km: number | null; km_anterior: number | null; km_rodados: number | null;
-  valor: number; preco_litro: number; litros: number; km_litro: number | null; custo_km: number | null; foto_painel: string; foto_km: string | null; observacao: string | null; usuario: string | null;
+  valor: number; preco_litro: number; litros: number; combustivel: Combustivel | null; km_litro: number | null; custo_km: number | null; foto_painel: string; foto_km: string | null; observacao: string | null; usuario: string | null;
 };
 type PorVeiculo = { veiculo_id: string; veiculo: string; placa: string | null; abastecimentos: number; valor: number; litros: number; km_rodados: number | null; km_litro: number | null; custo_km: number | null };
-type Rel = { total_valor: number; total_litros: number; quantidade: number; lista: Linha[]; por_veiculo: PorVeiculo[] };
+type PorComb = { combustivel: Combustivel | "nao_informado"; abastecimentos: number; valor: number; litros: number; preco_medio: number | null };
+type Rel = { total_valor: number; total_litros: number; quantidade: number; lista: Linha[]; por_veiculo: PorVeiculo[]; por_combustivel?: PorComb[] };
+const nomeComb = (c: string | null | undefined) => (c && c !== "nao_informado" ? COMBUSTIVEIS[c as Combustivel] ?? c : "Não informado");
 
 const n = (x: unknown) => Number(x ?? 0);
 const fmtKm = (x: number | null) => (x == null ? "—" : `${n(x).toLocaleString("pt-BR")} km`);
@@ -97,6 +100,21 @@ export default function Abastecimentos() {
             <div className="cartao p-4"><div className="text-xs font-semibold uppercase text-zinc-500">Custo por km</div><div className="font-display text-3xl font-bold">{(() => { const c = lista.filter((l) => l.km_rodados); const v = c.reduce((s, l) => s + n(l.valor), 0), k = c.reduce((s, l) => s + n(l.km_rodados), 0); return k ? fmtMoeda(v / k) : "—"; })()}</div><div className="text-sm text-zinc-500">gasto ÷ km rodados</div></div>
           </div>
 
+          {(rel.por_combustivel?.length ?? 0) > 0 && (
+            <section>
+              <h2 className="titulo mb-2 text-lg">Por combustível</h2>
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                {rel.por_combustivel!.map((c) => (
+                  <div key={c.combustivel} className="cartao p-4">
+                    <div className="text-xs font-semibold uppercase text-zinc-500">{nomeComb(c.combustivel)}</div>
+                    <div className="font-display text-2xl font-bold">{fmtMoeda(c.valor)}</div>
+                    <div className="text-sm text-zinc-500">{fmtL(c.litros)} · média {c.preco_medio ? fmtMoeda(c.preco_medio) : "—"}/L · {c.abastecimentos}×</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           <section>
             <h2 className="titulo mb-2 text-lg">Por carro</h2>
             {rel.por_veiculo.length === 0 ? <Vazio>Nenhum abastecimento neste período.</Vazio> : (
@@ -130,13 +148,14 @@ export default function Abastecimentos() {
               <div className="cartao overflow-x-auto">
                 <table className="w-full text-[15px]">
                   <thead className="border-b border-zinc-200 text-left text-xs uppercase text-zinc-500 dark:border-zinc-800">
-                    <tr><th className={th}>Data</th><th className={th}>Carro</th><th className={`${th} text-right`}>Km</th><th className={`${th} text-right`}>Rodou</th><th className={`${th} text-right`}>Valor</th><th className={`${th} text-right`}>R$/litro</th><th className={`${th} text-right`}>Litros</th><th className={`${th} text-right`}>Km/l</th><th className={th}>Fotos</th><th /></tr>
+                    <tr><th className={th}>Data</th><th className={th}>Carro</th><th className={th}>Combustível</th><th className={`${th} text-right`}>Km</th><th className={`${th} text-right`}>Rodou</th><th className={`${th} text-right`}>Valor</th><th className={`${th} text-right`}>R$/litro</th><th className={`${th} text-right`}>Litros</th><th className={`${th} text-right`}>Km/l</th><th className={th}>Fotos</th><th /></tr>
                   </thead>
                   <tbody>
                     {lista.map((l) => (
                       <tr key={l.id} className="border-b border-zinc-100 last:border-0 dark:border-zinc-800">
                         <td className={`${th} whitespace-nowrap`}>{fmtData(l.data)}</td>
                         <td className={th}><b>{l.veiculo}</b>{l.observacao && <div className="text-xs text-zinc-500">{l.observacao}</div>}{l.usuario && <div className="text-xs text-zinc-400">por {l.usuario}</div>}</td>
+                        <td className={th}>{l.combustivel ? COMBUSTIVEIS[l.combustivel] : <span className="text-zinc-400">—</span>}</td>
                         <td className={`${th} text-right whitespace-nowrap`}>{l.km == null ? <span className="text-xs text-zinc-400">não marca</span> : fmtKm(l.km)}</td>
                         <td className={`${th} text-right whitespace-nowrap`}>{fmtKm(l.km_rodados)}</td>
                         <td className={`${th} text-right font-semibold whitespace-nowrap`}>{fmtMoeda(l.valor)}</td>

@@ -1,5 +1,6 @@
 "use client";
 
+import { LISTA_COMBUSTIVEIS, nomesCombustiveis } from "@/lib/tipos";
 import { useState } from "react";
 import { Cadastro, type Campo, type Coluna } from "@/components/cadastro";
 import { Cabecalho } from "@/components/ui";
@@ -24,6 +25,7 @@ const ABAS: Aba[] = [
       { nome: "nome", rotulo: "Nome / modelo", obrigatorio: true, largura: 3, maiusculo: true },
       { nome: "placa", rotulo: "Placa", largura: 1, maiusculo: true },
       { nome: "capacidade_kg", rotulo: "Capacidade (kg)", tipo: "numero", largura: 2, ajuda: "O romaneio avisa se passar" },
+      { nome: "combustiveis", rotulo: "Combustível (carro flex: marque etanol e gasolina)", tipo: "multi", opcoes: LISTA_COMBUSTIVEIS, padrao: [] },
       { nome: "marca_km", rotulo: "O painel marca a quilometragem", tipo: "bool", padrao: true },
       { nome: "ativo", rotulo: "Ativo", tipo: "bool", padrao: true },
     ],
@@ -31,6 +33,7 @@ const ABAS: Aba[] = [
       { rotulo: "Veículo", valor: (l) => <span className="font-semibold">{l.nome}</span> },
       { rotulo: "Placa", valor: (l) => l.placa ?? "—" },
       { rotulo: "Capacidade", valor: (l) => (l.capacidade_kg ? `${Number(l.capacidade_kg).toLocaleString("pt-BR")} kg` : "—") },
+      { rotulo: "Combustível", valor: (l) => nomesCombustiveis(l.combustiveis) || <span className="text-amber-600">não informado</span> },
       { rotulo: "Marca km", valor: (l) => (l.marca_km === false ? <span className="text-amber-600">não</span> : "sim") },
     ],
   },

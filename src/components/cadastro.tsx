@@ -11,7 +11,7 @@ type Linha = Record<string, any>;
 export type Campo = {
   nome: string;
   rotulo: string;
-  tipo?: "texto" | "numero" | "moeda" | "bool" | "select" | "area";
+  tipo?: "texto" | "numero" | "moeda" | "bool" | "select" | "area" | "multi";
   opcoes?: { valor: string; nome: string }[];
   ref?: { tabela: string; rotulo: string; ordem?: string };
   obrigatorio?: boolean;
@@ -104,7 +104,7 @@ export function Cadastro({ tabela, singular, campos, colunas, buscaEm, ordem, po
 
   function novo() {
     const l: Linha = {};
-    campos.forEach((c) => { l[c.nome] = c.padrao ?? (c.tipo === "bool" ? false : ""); });
+    campos.forEach((c) => { l[c.nome] = c.padrao ?? (c.tipo === "bool" ? false : c.tipo === "multi" ? [] : ""); });
     setEditando(l);
   }
 
@@ -117,6 +117,7 @@ export function Cadastro({ tabela, singular, campos, colunas, buscaEm, ordem, po
       let v = editando[c.nome];
       if (c.tipo === "numero" || c.tipo === "moeda") v = v === "" || v == null ? (c.obrigatorio ? 0 : null) : Number(String(v).replace(",", "."));
       else if (c.tipo === "bool") v = !!v;
+      else if (c.tipo === "multi") v = Array.isArray(v) ? v : [];
       else if (typeof v === "string") { v = v.trim(); if (c.maiusculo) v = v.toLocaleUpperCase("pt-BR"); if (v === "") v = null; }
       dados[c.nome] = v;
     }
@@ -216,7 +217,21 @@ export function Cadastro({ tabela, singular, campos, colunas, buscaEm, ordem, po
                 ) : (
                   <>
                     <label className="rotulo" htmlFor={`c-${c.nome}`}>{c.rotulo}{c.obrigatorio && " *"}</label>
-                    {c.tipo === "select" || c.ref ? (
+                    {c.tipo === "multi" ? (
+                      <div className="flex flex-wrap gap-2" role="group" aria-label={c.rotulo}>
+                        {(c.opcoes ?? []).map((o) => {
+                          const lista: string[] = Array.isArray(editando[c.nome]) ? editando[c.nome] : [];
+                          const marcado = lista.includes(o.valor);
+                          return (
+                            <button key={o.valor} type="button" aria-pressed={marcado}
+                              onClick={() => setEditando({ ...editando, [c.nome]: marcado ? lista.filter((x) => x !== o.valor) : [...lista, o.valor] })}
+                              className={`h-10 rounded-full border-2 px-4 font-semibold ${marcado ? "border-marca-500 bg-marca-50 text-marca-900 dark:bg-marca-500/15 dark:text-marca-100" : "border-zinc-300 dark:border-zinc-700"}`}>
+                              {marcado ? "✓ " : ""}{o.nome}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : c.tipo === "select" || c.ref ? (
                       <select id={`c-${c.nome}`} className="campo" required={c.obrigatorio} value={editando[c.nome] ?? ""} onChange={(e) => setEditando({ ...editando, [c.nome]: e.target.value || null })}>
                         {c.obrigatorio ? <option value="" disabled>Escolha…</option> : <option value="">—</option>}
                         {(c.opcoes ?? opcoesRef[c.nome] ?? []).map((o) => <option key={o.valor} value={o.valor}>{o.nome}</option>)}
