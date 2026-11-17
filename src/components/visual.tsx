@@ -5,8 +5,9 @@ import { useEffect, useState } from "react";
 import { supabaseNavegador } from "@/lib/supabase/client";
 import { erroMsg } from "@/lib/formato";
 import {
-  LAYOUTS, VISUAIS, aplicarLayout, aplicarVisual, ehLayout, ehVisual, guardarLayout, guardarVisual,
-  layoutPrevia, layoutSalvo, sairPrevia, visualPrevia, visualSalvo, type IdLayout, type IdVisual,
+  LAYOUTS, LAYOUT_PADRAO, VERSAO_ESCOLHA, VISUAIS, VISUAL_PADRAO, aplicarLayout, aplicarVisual, ehLayout, ehVisual,
+  esquecerEscolhaLocal, guardarLayout, guardarVisual, layoutPrevia, layoutSalvo, sairPrevia, temEscolhaLocal, visualPrevia, visualSalvo,
+  type IdLayout, type IdVisual,
 } from "@/lib/visual";
 import { avisar } from "./ui";
 
@@ -17,7 +18,16 @@ export function SincronizaVisual() {
     supabaseNavegador().from("configuracoes").select("valor").eq("chave", "visual").maybeSingle()
       .then(({ data, error }) => {
         if (!vivo || error) return;               // sem internet ou banco antigo: fica como está
-        const valor = (data?.valor ?? null) as { id?: string; layout?: string } | null;
+        const valor = (data?.valor ?? null) as { id?: string; layout?: string; v?: number } | null;
+        // nada gravado (ou gravado antes da escolha atual): vale o padrão do sistema
+        if (!valor || (valor.v ?? 0) < VERSAO_ESCOLHA) {
+          if (temEscolhaLocal()) {
+            esquecerEscolhaLocal();
+            if (!visualPrevia()) aplicarVisual(VISUAL_PADRAO);
+            if (!layoutPrevia()) aplicarLayout(LAYOUT_PADRAO);
+          }
+          return;
+        }
         if (ehVisual(valor?.id) && valor.id !== visualSalvo()) {
           guardarVisual(valor.id);
           if (!visualPrevia()) aplicarVisual(valor.id);
@@ -34,7 +44,7 @@ export function SincronizaVisual() {
 
 /** Grava as cores e/ou o layout para todo mundo (só administrador). */
 export async function usarParaTodos(novo: { visual?: IdVisual; layout?: IdLayout }) {
-  const valor = { id: novo.visual ?? visualSalvo(), layout: novo.layout ?? layoutSalvo() };
+  const valor = { id: novo.visual ?? visualSalvo(), layout: novo.layout ?? layoutSalvo(), v: VERSAO_ESCOLHA };
   const { error } = await supabaseNavegador().from("configuracoes").upsert({ chave: "visual", valor });
   if (error) {
     avisar(/configuracoes|relation|42P01/i.test(error.message) ? "Rode a atualização 24 no Supabase para poder escolher o visual." : erroMsg(error), "erro");

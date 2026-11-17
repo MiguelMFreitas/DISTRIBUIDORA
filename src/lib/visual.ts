@@ -53,6 +53,8 @@ export const LAYOUTS: Layout[] = [
   { id: "areas", nome: "Áreas com abas", descricao: "Faixa fina com as áreas na esquerda; as telas de cada área ficam em abas no alto da página.", celular: "Áreas na barra de baixo e as telas em abas no alto." },
 ];
 export const LAYOUT_PADRAO: IdLayout = "topo";
+/** Escolhas gravadas em Aparência antes desta versão são ignoradas (o dono escolheu Menu no topo + Clássico). */
+export const VERSAO_ESCOLHA = 2;
 export const ehLayout = (x: unknown): x is IdLayout => LAYOUTS.some((v) => v.id === x);
 
 const LOCAL = "visual";
@@ -78,6 +80,9 @@ export function aplicarLayout(id: IdLayout) {
 export function visualSalvo(): IdVisual { const v = ler(() => localStorage, LOCAL); return ehVisual(v) ? v : VISUAL_PADRAO; }
 export function layoutSalvo(): IdLayout { const v = ler(() => localStorage, LOCAL_L); return ehLayout(v) ? v : LAYOUT_PADRAO; }
 export function guardarVisual(id: IdVisual) { gravar(() => localStorage, LOCAL, id); }
+/** apaga a cópia da escolha neste aparelho (volta a valer o padrão do sistema) */
+export function esquecerEscolhaLocal() { gravar(() => localStorage, LOCAL, null); gravar(() => localStorage, LOCAL_L, null); }
+export const temEscolhaLocal = () => ler(() => localStorage, LOCAL) != null || ler(() => localStorage, LOCAL_L) != null;
 export function guardarLayout(id: IdLayout) { gravar(() => localStorage, LOCAL_L, id); }
 export function visualPrevia(): IdVisual | null { const v = ler(() => sessionStorage, PREVIA); return ehVisual(v) ? v : null; }
 export function layoutPrevia(): IdLayout | null { const v = ler(() => sessionStorage, PREVIA_L); return ehLayout(v) ? v : null; }
