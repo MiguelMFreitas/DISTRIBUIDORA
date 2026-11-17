@@ -43,30 +43,51 @@ export const VISUAIS: Visual[] = [
 export const VISUAL_PADRAO: IdVisual = "classico";
 export const ehVisual = (x: unknown): x is IdVisual => VISUAIS.some((v) => v.id === x);
 
+/* ---------------- layouts (arrumação das telas) ---------------- */
+export type IdLayout = "lateral" | "grupos" | "topo" | "areas";
+export type Layout = { id: IdLayout; nome: string; descricao: string; celular: string };
+export const LAYOUTS: Layout[] = [
+  { id: "lateral", nome: "Lateral", descricao: "O de hoje: todas as telas numa lista só, no menu da esquerda.", celular: "Botão “Menu” no alto abre a lista." },
+  { id: "grupos", nome: "Menu por grupos", descricao: "Menu da esquerda separado em Vendas, Entregas, Clientes, Produtos, Gestão e Sistema, com busca de tela.", celular: "Barra de botões embaixo com as telas mais usadas e “Mais”." },
+  { id: "topo", nome: "Menu no topo", descricao: "O menu vira uma barra em cima, com os grupos que abrem uma lista. A tela fica mais larga.", celular: "Barra de botões embaixo com as telas mais usadas e “Mais”." },
+  { id: "areas", nome: "Áreas com abas", descricao: "Faixa fina com as áreas na esquerda; as telas de cada área ficam em abas no alto da página.", celular: "Áreas na barra de baixo e as telas em abas no alto." },
+];
+export const LAYOUT_PADRAO: IdLayout = "lateral";
+export const ehLayout = (x: unknown): x is IdLayout => LAYOUTS.some((v) => v.id === x);
+
 const LOCAL = "visual";
 const PREVIA = "visual_previa";
+const LOCAL_L = "layout";
+const PREVIA_L = "layout_previa";
 
-/** Roda antes de a página aparecer (no <head>): evita piscar com o visual errado */
-export const SCRIPT_VISUAL = `(function(){try{var v=localStorage.getItem("${LOCAL}")||"${VISUAL_PADRAO}";var p=sessionStorage.getItem("${PREVIA}");if(p)v=p;document.documentElement.setAttribute("data-visual",v)}catch(e){document.documentElement.setAttribute("data-visual","${VISUAL_PADRAO}")}})()`;
+/** Roda antes de a página aparecer (no <head>): evita piscar com o visual ou o layout errado */
+export const SCRIPT_VISUAL = `(function(){var h=document.documentElement;try{var v=sessionStorage.getItem("${PREVIA}")||localStorage.getItem("${LOCAL}")||"${VISUAL_PADRAO}";var l=sessionStorage.getItem("${PREVIA_L}")||localStorage.getItem("${LOCAL_L}")||"${LAYOUT_PADRAO}";h.setAttribute("data-visual",v);h.setAttribute("data-layout",l)}catch(e){h.setAttribute("data-visual","${VISUAL_PADRAO}");h.setAttribute("data-layout","${LAYOUT_PADRAO}")}})()`;
+
+function avisarMudanca() { window.dispatchEvent(new CustomEvent("visual-mudou")); }
+const ler = (st: () => Storage, k: string) => { try { return st().getItem(k); } catch { return null; } };
+const gravar = (st: () => Storage, k: string, v: string | null) => { try { if (v == null) st().removeItem(k); else st().setItem(k, v); } catch {} };
 
 export function aplicarVisual(id: IdVisual) {
   document.documentElement.setAttribute("data-visual", id);
-  window.dispatchEvent(new CustomEvent("visual-mudou"));
+  avisarMudanca();
 }
-export function visualSalvo(): IdVisual {
-  try { const v = localStorage.getItem(LOCAL); return ehVisual(v) ? v : VISUAL_PADRAO; } catch { return VISUAL_PADRAO; }
+export function aplicarLayout(id: IdLayout) {
+  document.documentElement.setAttribute("data-layout", id);
+  avisarMudanca();
 }
-export function guardarVisual(id: IdVisual) {
-  try { localStorage.setItem(LOCAL, id); } catch {}
-}
-export function visualPrevia(): IdVisual | null {
-  try { const v = sessionStorage.getItem(PREVIA); return ehVisual(v) ? v : null; } catch { return null; }
-}
-export function comecarPrevia(id: IdVisual) {
-  try { sessionStorage.setItem(PREVIA, id); } catch {}
-  aplicarVisual(id);
-}
+export function visualSalvo(): IdVisual { const v = ler(() => localStorage, LOCAL); return ehVisual(v) ? v : VISUAL_PADRAO; }
+export function layoutSalvo(): IdLayout { const v = ler(() => localStorage, LOCAL_L); return ehLayout(v) ? v : LAYOUT_PADRAO; }
+export function guardarVisual(id: IdVisual) { gravar(() => localStorage, LOCAL, id); }
+export function guardarLayout(id: IdLayout) { gravar(() => localStorage, LOCAL_L, id); }
+export function visualPrevia(): IdVisual | null { const v = ler(() => sessionStorage, PREVIA); return ehVisual(v) ? v : null; }
+export function layoutPrevia(): IdLayout | null { const v = ler(() => sessionStorage, PREVIA_L); return ehLayout(v) ? v : null; }
+export function comecarPrevia(id: IdVisual) { gravar(() => sessionStorage, PREVIA, id); aplicarVisual(id); }
+export function comecarPreviaLayout(id: IdLayout) { gravar(() => sessionStorage, PREVIA_L, id); aplicarLayout(id); }
+/** sai da prévia de cores e de layout e volta ao que está em uso */
 export function sairPrevia() {
-  try { sessionStorage.removeItem(PREVIA); } catch {}
-  aplicarVisual(visualSalvo());
+  gravar(() => sessionStorage, PREVIA, null);
+  gravar(() => sessionStorage, PREVIA_L, null);
+  document.documentElement.setAttribute("data-visual", visualSalvo());
+  document.documentElement.setAttribute("data-layout", layoutSalvo());
+  avisarMudanca();
 }

@@ -119,6 +119,27 @@
   text-transform: none; letter-spacing: 0; font-size: 0.8125rem;
 }
 
+/* =====================================================================
+   LAYOUTS (Aparência → Layout): os 4 menus ficam na página e só aparece
+   o escolhido em html[data-layout]. --barra-baixo = altura da barra de
+   baixo do celular (avisos e barras fixas sobem esse tanto).
+   ===================================================================== */
+:root { --barra-baixo: 0px; }
+.lay-lateral, .lay-grupos, .lay-topo, .lay-areas { display: none; }
+html:not([data-layout]) .lay-lateral,
+[data-layout="lateral"] .lay-lateral, [data-layout="grupos"] .lay-grupos,
+[data-layout="topo"] .lay-topo, [data-layout="areas"] .lay-areas { display: contents; }
+@media (max-width: 1023.98px) {
+  :is([data-layout="grupos"], [data-layout="topo"], [data-layout="areas"]) { --barra-baixo: calc(62px + env(safe-area-inset-bottom, 0px)); }
+}
+.casca { min-height: 100%; padding-bottom: var(--barra-baixo); }
+@media (min-width: 1024px) {
+  html:not([data-layout]) .casca, [data-layout="lateral"] .casca { padding-left: 16rem; }
+  [data-layout="grupos"] .casca { padding-left: 15rem; }
+  [data-layout="topo"] .casca { padding-top: 3.5rem; }
+  [data-layout="areas"] .casca { padding-left: 5.25rem; }
+}
+
 html, body { height: 100%; }
 body {
   @apply bg-zinc-100 text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
@@ -145,4 +166,5 @@ input[type="number"] { -moz-appearance: textfield; }
   [data-visual="escuro"] * { background-color: transparent !important; color: #111 !important; border-color: #ccc !important; }
   body { background: #fff !important; color: #111 !important; }
   .cartao { break-inside: avoid; }
+  .casca { padding: 0 !important; }
 }

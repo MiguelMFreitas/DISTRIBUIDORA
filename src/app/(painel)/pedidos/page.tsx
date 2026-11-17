@@ -22,11 +22,13 @@ export default function Pedidos() {
   const [de, setDe] = useState(hojeISO());
   const [ate, setAte] = useState(hojeISO());
   const [status, setStatus] = useState<string>("");
+  const [filtros, setFiltros] = useState(false); // celular: filtros abertos?
   const [vendedor, setVendedor] = useState("");
   const [rota, setRota] = useState("");
   const [busca, setBusca] = useState("");
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const [rotas, setRotas] = useState<{ id: string; nome: string }[]>([]);
+  const nFiltros = [de !== hojeISO() || ate !== hojeISO(), !!status, !!vendedor, !!rota].filter(Boolean).length;
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [aberto, setAberto] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
@@ -78,29 +80,57 @@ export default function Pedidos() {
       </Cabecalho>
 
       <div className="cartao mb-3 grid gap-2 p-3 sm:grid-cols-3 lg:grid-cols-6">
-        <div><label className="rotulo">De</label><input type="date" className="campo" value={de} onChange={(e) => setDe(e.target.value)} /></div>
-        <div><label className="rotulo">Até</label><input type="date" className="campo" value={ate} onChange={(e) => setAte(e.target.value)} /></div>
-        <div><label className="rotulo">Situação</label>
+        {/* celular: só a pesquisa aparece; o resto abre no botão Filtros */}
+        <div className="flex gap-2 sm:hidden">
+          <input className="campo" placeholder="Pesquisar cliente, nº, bairro" value={busca} onChange={(e) => setBusca(e.target.value)} aria-label="Pesquisar" />
+          <Botao variante="secundario" className="shrink-0 whitespace-nowrap" onClick={() => setFiltros(!filtros)} aria-expanded={filtros}>Filtros{nFiltros ? ` (${nFiltros})` : ""} {filtros ? "▲" : "▼"}</Botao>
+        </div>
+        <div className={filtros ? "" : "max-sm:hidden"}><label className="rotulo">De</label><input type="date" className="campo" value={de} onChange={(e) => setDe(e.target.value)} /></div>
+        <div className={filtros ? "" : "max-sm:hidden"}><label className="rotulo">Até</label><input type="date" className="campo" value={ate} onChange={(e) => setAte(e.target.value)} /></div>
+        <div className={filtros ? "" : "max-sm:hidden"}><label className="rotulo">Situação</label>
           <select className="campo" value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">Todas</option>
             {Object.entries(STATUS_PEDIDO).map(([k, v]) => <option key={k} value={k}>{v.nome}</option>)}
           </select>
         </div>
-        <div><label className="rotulo">Vendedor</label>
+        <div className={filtros ? "" : "max-sm:hidden"}><label className="rotulo">Vendedor</label>
           <select className="campo" value={vendedor} onChange={(e) => setVendedor(e.target.value)}>
             <option value="">Todos</option>{vendedores.map((v) => <option key={v}>{v}</option>)}
           </select>
         </div>
-        <div><label className="rotulo">Bairro</label>
+        <div className={filtros ? "" : "max-sm:hidden"}><label className="rotulo">Bairro</label>
           <select className="campo" value={rota} onChange={(e) => setRota(e.target.value)}>
             <option value="">Todos</option>{rotas.map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
           </select>
         </div>
-        <div><label className="rotulo">Pesquisar</label><input className="campo" placeholder="Cliente, nº, bairro" value={busca} onChange={(e) => setBusca(e.target.value)} /></div>
+        <div className="max-sm:hidden"><label className="rotulo">Pesquisar</label><input className="campo" placeholder="Cliente, nº, bairro" value={busca} onChange={(e) => setBusca(e.target.value)} /></div>
       </div>
 
-      {carregando ? <div className="cartao p-8 text-center text-zinc-500">Carregando…</div> : visiveis.length === 0 ? <Vazio>Nenhum pedido neste período.</Vazio> : (
-        <div className="cartao overflow-x-auto">
+      {carregando ? <div className="cartao p-8 text-center text-zinc-500">Carregando…</div> : visiveis.length === 0 ? <Vazio>Nenhum pedido neste período.</Vazio> : (<>
+        {/* celular: um cartão por pedido */}
+        <div className="cartao divide-y divide-zinc-100 sm:hidden dark:divide-zinc-800">
+          {visiveis.map((l) => (
+            <div key={l.id} className={`flex items-start gap-3 p-3 ${["cancelado", "recusado"].includes(l.status) ? "opacity-50" : ""}`}>
+              <input type="checkbox" className="mt-1 size-5 shrink-0" checked={sel.has(l.id)} aria-label={`Marcar pedido ${l.numero}`}
+                onChange={() => setSel((s) => { const n = new Set(s); if (n.has(l.id)) n.delete(l.id); else n.add(l.id); return n; })} />
+              <button className="min-w-0 flex-1 text-left" onClick={() => setAberto(l.id)}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-zinc-500">Nº {l.numero}{l.impresso_em && " · 🖨"} · {fmtDataHora(l.feito_em)}</div>
+                    <div className="truncate font-semibold">{l.origem === "link" ? `🔗 ${l.contato_nome}` : l.clientes.razao_social}</div>
+                    <div className="truncate text-xs text-zinc-500">{[l.origem === "link" ? l.contato_bairro : (l.clientes.rota_id && nomeRota[l.clientes.rota_id]) || l.clientes.bairro, l.perfis?.nome].filter(Boolean).join(" · ")}</div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="font-bold whitespace-nowrap">{fmtMoeda(l.total)}</div>
+                    <Selo cor={STATUS_PEDIDO[l.status].cor}>{STATUS_PEDIDO[l.status].nome}</Selo>
+                    {(l.cargas || (l.entrega && l.entrega !== "caminhao")) && <div className="mt-0.5 text-xs text-zinc-500">{l.cargas ? `Carga ${l.cargas.numero}` : l.entrega === "moto" ? "🏍️ Moto" : "🏪 Balcão"}</div>}
+                  </div>
+                </div>
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="cartao overflow-x-auto max-sm:hidden">
           <table className="w-full text-[15px]">
             <thead className="border-b border-zinc-200 text-left text-xs uppercase text-zinc-500 dark:border-zinc-800">
               <tr>
@@ -127,7 +157,7 @@ export default function Pedidos() {
             </tbody>
           </table>
         </div>
-      )}
+      </>)}
       <PedidoDetalhe id={aberto} aoFechar={() => setAberto(null)} aoMudar={carregar} />
     </Exige>
   );

@@ -67,7 +67,8 @@ export function Cabecalho({ titulo, sub, children }: { titulo: string; sub?: Rea
         <h1 className="titulo text-3xl">{titulo}</h1>
         {sub && <p className="text-sm text-zinc-500 dark:text-zinc-400">{sub}</p>}
       </div>
-      <div className="flex flex-wrap gap-2">{children}</div>
+      {/* no celular os botões ficam numa linha que corre para o lado, em vez de ocupar a tela toda */}
+      {children && <div className="-mx-4 flex w-[calc(100%+2rem)] gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:w-auto sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>*]:shrink-0">{children}</div>}
     </div>
   );
 }
@@ -88,7 +89,7 @@ export function Avisos() {
     return () => { ouvinte = null; };
   }, []);
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex flex-col items-center gap-2 px-4 nao-imprimir">
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--barra-baixo)+1rem)] z-[60] flex flex-col items-center gap-2 px-4 nao-imprimir">
       {lista.map((a) => (
         <div key={a.id} className={`pointer-events-auto max-w-md rounded-full px-4 py-2 text-sm font-semibold shadow-lg ${a.tipo === "erro" ? "bg-red-600 text-white" : "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"}`}>
           {a.texto}

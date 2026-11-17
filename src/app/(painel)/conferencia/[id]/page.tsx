@@ -225,7 +225,7 @@ export default function Conferir() {
           </div>
         )}
 
-        <div className="sticky bottom-0 mt-4 flex gap-2 border-t border-zinc-200 bg-zinc-100/95 py-3 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
+        <div className="sticky bottom-[var(--barra-baixo)] mt-4 flex gap-2 border-t border-zinc-200 bg-zinc-100/95 py-3 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
           <a className="flex h-12 flex-1 items-center justify-center gap-2 rounded-lg bg-[#1f9d55] font-bold text-white" href={`https://api.whatsapp.com/send?text=${encodeURIComponent(mensagem())}`} target="_blank" rel="noopener">
             Enviar no WhatsApp
           </a>
