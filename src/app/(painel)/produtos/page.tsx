@@ -7,7 +7,7 @@ import { fmtMoeda, fmtPeso, fmtQtd } from "@/lib/formato";
 
 const CAMPOS: Campo[] = [
   { nome: "nome", rotulo: "Descrição do produto", obrigatorio: true, largura: 3, maiusculo: true },
-  { nome: "codigo", rotulo: "Código", largura: 2 },
+  { nome: "codigo", rotulo: "Código", largura: 2, automatico: true, ajuda: "Número automático, na ordem de cadastro" },
   { nome: "categoria_id", rotulo: "Categoria (ordem no caminhão)", ref: { tabela: "categorias", rotulo: "nome", ordem: "ordem" }, largura: 3 },
   {
     nome: "unidade", rotulo: "Vendido em", tipo: "select", obrigatorio: true, padrao: "CX", largura: 3,

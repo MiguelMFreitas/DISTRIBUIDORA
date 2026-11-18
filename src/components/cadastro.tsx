@@ -20,6 +20,8 @@ export type Campo = {
   padrao?: any;
   passo?: number;
   maiusculo?: boolean;
+  /** só mostra (o banco preenche sozinho, ex.: código automático) */
+  automatico?: boolean;
 };
 
 export type Coluna = {
@@ -114,6 +116,7 @@ export function Cadastro({ tabela, singular, campos, colunas, buscaEm, ordem, po
     setSalvando(true);
     const dados: Linha = {};
     for (const c of campos) {
+      if (c.automatico) continue;
       let v = editando[c.nome];
       if (c.tipo === "numero" || c.tipo === "moeda") v = v === "" || v == null ? (c.obrigatorio ? 0 : null) : Number(String(v).replace(",", "."));
       else if (c.tipo === "bool") v = !!v;
@@ -241,7 +244,9 @@ export function Cadastro({ tabela, singular, campos, colunas, buscaEm, ordem, po
                     ) : (
                       <input
                         id={`c-${c.nome}`}
-                        className={`campo ${c.maiusculo ? "uppercase" : ""}`}
+                        disabled={c.automatico}
+                        placeholder={c.automatico ? "automático" : undefined}
+                        className={`campo ${c.maiusculo ? "uppercase" : ""} ${c.automatico ? "bg-zinc-100! text-zinc-500 dark:bg-zinc-800!" : ""}`}
                         required={c.obrigatorio}
                         type={c.tipo === "numero" || c.tipo === "moeda" ? "number" : "text"}
                         step={c.tipo === "moeda" ? 0.01 : c.passo ?? "any"}

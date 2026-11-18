@@ -696,4 +696,19 @@ do $$ begin
 exception when check_violation then raise notice 'OK   carro só aceita etanol, gasolina, diesel ou gás';
 end $$;
 
+
+-- ---------- 33. códigos automáticos em ordem de criação ----------
+reset role;
+select coalesce(max(codigo::bigint), 0) as ultp from produtos where codigo ~ '^[0-9]+$' \gset
+insert into produtos (nome, unidade, preco) values ('TESTE COD A', 'UN', 1) returning codigo as ca \gset
+insert into produtos (nome, unidade, preco, codigo) values ('TESTE COD MANUAL', 'UN', 1, (:ultp + 2)::text);
+insert into produtos (nome, unidade, preco) values ('TESTE COD B', 'UN', 1) returning codigo as cb \gset
+insert into produtos (nome, unidade, preco, codigo) values ('TESTE COD C', 'UN', 1, '') returning codigo as cc \gset
+select pg_temp.ok(:'ca'::bigint = :ultp + 1, 'produto novo recebe o próximo número');
+select pg_temp.ok(:'cb'::bigint = :ultp + 3, 'número digitado à mão é pulado (não repete)');
+select pg_temp.ok(:'cc'::bigint = :ultp + 4, 'código vazio também vira número');
+select pg_temp.ok((select count(*) from produtos where codigo is null) = 0 and (select count(*) from clientes where codigo is null) = 0, 'todos os produtos e clientes têm código');
+insert into clientes (razao_social, vendedor_id) values ('TESTE CLIENTE COD', '00000000-0000-0000-0000-00000000000b') returning codigo as cl \gset
+select pg_temp.ok(:'cl' ~ '^[0-9]+$', 'cliente novo recebe número');
+
 \warn '>>> TODOS OS TESTES PASSARAM'

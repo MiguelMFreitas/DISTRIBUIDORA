@@ -8,7 +8,7 @@ const CAMPOS: Campo[] = [
   { nome: "razao_social", rotulo: "Razão social", obrigatorio: true, largura: 3, maiusculo: true },
   { nome: "nome_fantasia", rotulo: "Nome fantasia", largura: 3, maiusculo: true },
   { nome: "rota_id", rotulo: "Bairro", ref: { tabela: "rotas", rotulo: "nome" }, obrigatorio: true, largura: 3, ajuda: "Cadastre os bairros na tela Bairros" },
-  { nome: "codigo", rotulo: "Código", largura: 1 },
+  { nome: "codigo", rotulo: "Código", largura: 1, automatico: true },
   { nome: "cpf_cnpj", rotulo: "CPF / CNPJ", largura: 2 },
   { nome: "inscricao_estadual", rotulo: "Inscrição estadual", largura: 3 },
   { nome: "endereco", rotulo: "Endereço", largura: 3, maiusculo: true },
