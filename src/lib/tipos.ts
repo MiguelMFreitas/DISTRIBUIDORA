@@ -70,6 +70,10 @@ export type Cliente = {
   cidade: string | null;
   telefone: string | null;
   whatsapp?: string | null;
+  /** nome da pessoa que faz o pedido */
+  contato?: string | null;
+  /** "Marcos 12 (RAZÃO SOCIAL)" — contato + código + razão social */
+  identificacao?: string | null;
   rota_id: string | null;
   vendedor_id: string | null;
   ordem_visita?: number | null;

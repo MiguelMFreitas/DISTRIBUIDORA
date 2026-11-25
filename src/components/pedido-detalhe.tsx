@@ -30,6 +30,7 @@ export function PedidoDetalhe({ id, aoFechar, aoMudar }: { id: string | null; ao
   const [p, setP] = useState<Det | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [voltou, setVoltou] = useState<Record<string, number>>({}); // item -> quantidade que voltou
+  const [ident, setIdent] = useState<string | null>(null); // "Marcos 12 (RAZÃO SOCIAL)"
   const [editando, setEditando] = useState<{ id: string; qtd: string; preco: number } | null>(null);
   // ação que espera a senha do administrador (preço abaixo do mínimo do produto)
   const [comSenha, setComSenha] = useState<{ texto: string; fazer: () => void } | null>(null);
@@ -41,6 +42,10 @@ export function PedidoDetalhe({ id, aoFechar, aoMudar }: { id: string | null; ao
       .eq("id", id).single();
     if (error) avisar(erroMsg(error), "erro");
     const d = data as unknown as Det | null;
+    if (d?.cliente_id) {
+      const ci = await sb.from("clientes").select("identificacao").eq("id", d.cliente_id).maybeSingle();
+      setIdent(ci.error ? null : ((ci.data as { identificacao?: string } | null)?.identificacao ?? null));
+    }
     const dv = await sb.from("pedido_itens").select("id, devolvido").eq("pedido_id", id);
     setVoltou(dv.error ? {} : Object.fromEntries(((dv.data ?? []) as { id: string; devolvido: number }[]).filter((x) => Number(x.devolvido) > 0).map((x) => [x.id, Number(x.devolvido)])));
     setP(d ? comContato(d) : null);
@@ -135,6 +140,7 @@ export function PedidoDetalhe({ id, aoFechar, aoMudar }: { id: string | null; ao
             <div>
               <div className="text-lg font-bold">{p.clientes.razao_social}</div>
               {p.clientes.nome_fantasia && <div className="text-zinc-500">{p.clientes.nome_fantasia}</div>}
+              {ident && p.origem !== "link" && <div className="text-sm font-semibold text-marca-700 dark:text-marca-500">🪪 {ident}</div>}
               <div className="text-sm text-zinc-500">{[p.clientes.endereco && `${p.clientes.endereco}${p.clientes.numero ? ", " + p.clientes.numero : ""}`, p.clientes.bairro, p.clientes.cidade, p.clientes.telefone].filter(Boolean).join(" · ")}</div>
             </div>
             <div className="text-right text-sm">

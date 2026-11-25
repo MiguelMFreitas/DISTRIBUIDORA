@@ -7,6 +7,7 @@ import { Exige, usePode } from "@/components/perfil-contexto";
 const CAMPOS: Campo[] = [
   { nome: "razao_social", rotulo: "Razão social", obrigatorio: true, largura: 3, maiusculo: true },
   { nome: "nome_fantasia", rotulo: "Nome fantasia", largura: 3, maiusculo: true },
+  { nome: "contato", rotulo: "Nome do contato (quem faz o pedido)", largura: 3, ajuda: "Ex.: Marcos. O robô chama o cliente de “Marcos 12 (razão social)”" },
   { nome: "rota_id", rotulo: "Bairro", ref: { tabela: "rotas", rotulo: "nome" }, obrigatorio: true, largura: 3, ajuda: "Cadastre os bairros na tela Bairros" },
   { nome: "codigo", rotulo: "Código", largura: 1, automatico: true },
   { nome: "cpf_cnpj", rotulo: "CPF / CNPJ", largura: 2 },
@@ -26,7 +27,7 @@ const CAMPOS: Campo[] = [
 
 const COLUNAS: Coluna[] = [
   { rotulo: "Cód.", valor: (l) => l.codigo ?? "—", classe: "text-zinc-500 w-16" },
-  { rotulo: "Cliente", valor: (l) => (<><div className="font-semibold">{l.razao_social}</div>{l.nome_fantasia && <div className="text-sm text-zinc-500">{l.nome_fantasia}</div>}</>) },
+  { rotulo: "Cliente", valor: (l) => (<><div className="font-semibold">{l.identificacao ?? l.razao_social}</div>{l.nome_fantasia && <div className="text-sm text-zinc-500">{l.nome_fantasia}</div>}</>) },
   { rotulo: "Bairro", valor: (l, r) => r.rota_id?.[l.rota_id] ? <b>{r.rota_id[l.rota_id]}</b> : <b className="text-red-600">sem bairro</b> },
   { rotulo: "Endereço", valor: (l) => [l.endereco && `${l.endereco}${l.numero ? ", " + l.numero : ""}`, l.cidade].filter(Boolean).join(" · ") || "—", classe: "text-sm" },
   { rotulo: "Telefone", valor: (l) => l.telefone ?? "—", classe: "whitespace-nowrap" },
@@ -45,7 +46,7 @@ export default function Clientes() {
     <Exige perm="clientes">
       <Cabecalho titulo="Clientes" sub="Cada cliente é de um vendedor. Só ele vê o cliente no celular e faz pedido para ele." />
       <Cadastro tabela="clientes" singular="Cliente" campos={CAMPOS} colunas={COLUNAS} ordem="razao_social" podeEditar={pode("clientes")}
-        buscaEm={["razao_social", "nome_fantasia", "codigo", "cpf_cnpj", "bairro", "cidade", "telefone"]} filtros={filtros} />
+        buscaEm={["razao_social", "nome_fantasia", "contato", "codigo", "cpf_cnpj", "bairro", "cidade", "telefone"]} filtros={filtros} />
     </Exige>
   );
 }

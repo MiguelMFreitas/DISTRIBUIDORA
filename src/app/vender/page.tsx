@@ -180,7 +180,7 @@ export default function Vender() {
   const clientesFiltrados = useMemo(() => {
     if (!cat) return [];
     let l = cat.clientes;
-    if (busca.trim()) l = l.filter((c) => combina(`${c.razao_social} ${c.nome_fantasia ?? ""} ${c.codigo ?? ""} ${c.bairro ?? ""} ${c.cpf_cnpj ?? ""}`, busca));
+    if (busca.trim()) l = l.filter((c) => combina(`${c.razao_social} ${c.nome_fantasia ?? ""} ${c.contato ?? ""} ${c.codigo ?? ""} ${c.bairro ?? ""} ${c.cpf_cnpj ?? ""}`, busca));
     // clientes do vendedor primeiro
     return [...l].sort((a, b) => Number(b.vendedor_id === userId) - Number(a.vendedor_id === userId) || alfa(a.razao_social, b.razao_social)).slice(0, 60);
   }, [cat, busca, userId]);

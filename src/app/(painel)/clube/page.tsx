@@ -123,7 +123,7 @@ function AbaClientes({ premios }: { premios: Premio[] }) {
           {visiveis.map((c) => (
             <button key={c.id} onClick={() => abrir(c)} className="flex w-full flex-wrap items-center gap-3 p-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
               <div className="min-w-0 flex-1">
-                <div className="truncate font-semibold">{c.codigo && <span className="text-zinc-500">{c.codigo} · </span>}{c.nome}</div>
+                <div className="truncate font-semibold">{c.nome}</div>
                 <div className="text-xs text-zinc-500">{c.whatsapp ? `WhatsApp ${c.whatsapp}` : "sem WhatsApp no cadastro"}{c.trocas_abertas ? ` · 🎁 ${c.trocas_abertas} prêmio(s) para entregar` : ""}</div>
               </div>
               <Selo cor={NIVEIS[c.nivel].cor}>{NIVEIS[c.nivel].nome}</Selo>

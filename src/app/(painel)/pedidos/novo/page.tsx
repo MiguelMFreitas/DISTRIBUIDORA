@@ -22,7 +22,7 @@ function BuscaCliente({ clientes, aoEscolher }: { clientes: Cliente[]; aoEscolhe
   const [q, setQ] = useState("");
   const [aberto, setAberto] = useState(false);
   const [i, setI] = useState(0);
-  const res = useMemo(() => (q.trim() ? clientes.filter((c) => combina(`${c.razao_social} ${c.nome_fantasia ?? ""} ${c.codigo ?? ""} ${c.bairro ?? ""} ${c.cpf_cnpj ?? ""}`, q)).slice(0, 12) : []), [q, clientes]);
+  const res = useMemo(() => (q.trim() ? clientes.filter((c) => combina(`${c.razao_social} ${c.nome_fantasia ?? ""} ${c.contato ?? ""} ${c.codigo ?? ""} ${c.bairro ?? ""} ${c.cpf_cnpj ?? ""}`, q)).slice(0, 12) : []), [q, clientes]);
   const escolher = (c: Cliente) => { aoEscolher(c); setQ(""); };
   return (
     <div className="relative">

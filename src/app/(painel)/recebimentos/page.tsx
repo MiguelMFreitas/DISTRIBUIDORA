@@ -10,13 +10,13 @@ import { usePode } from "@/components/perfil-contexto";
 type Ped = {
   id: string; numero: number; status: StatusPedido; total: number; total_devolvido: number; valor_pago: number | null;
   pago_em: string | null; pago_forma: string | null; pontos_ganhos: number; feito_em: string; entrega: string; origem: string;
-  contato_nome: string | null; clientes: { razao_social: string; nome_fantasia: string | null } | null;
+  contato_nome: string | null; clientes: { razao_social: string; nome_fantasia: string | null; identificacao?: string | null } | null;
 };
 type Item = { id: string; quantidade: number; devolvido: number; preco_unit: number; troca_id: string | null; produtos: { nome: string; unidade: string; permite_meia: boolean } };
 
 const FORMAS = [["dinheiro", "💵 Dinheiro"], ["pix", "📱 Pix"], ["cartao", "💳 Cartão"], ["boleto", "🧾 Boleto"], ["outro", "Outro"]] as const;
 const nomeForma = (f: string | null) => FORMAS.find((x) => x[0] === f)?.[1] ?? "—";
-const nomeCliente = (p: Ped) => (p.origem === "link" ? p.contato_nome : p.clientes?.nome_fantasia || p.clientes?.razao_social) ?? "—";
+const nomeCliente = (p: Ped) => (p.origem === "link" ? p.contato_nome : p.clientes?.identificacao || p.clientes?.nome_fantasia || p.clientes?.razao_social) ?? "—";
 const aReceber = (p: Ped) => Number(p.total) - Number(p.total_devolvido);
 const diasAtras = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
@@ -36,7 +36,7 @@ export default function Recebimentos() {
   const carregar = useCallback(async () => {
     setLista(null);
     let q = sb.from("pedidos")
-      .select("id, numero, status, total, total_devolvido, valor_pago, pago_em, pago_forma, pontos_ganhos, feito_em, entrega, origem, contato_nome, clientes(razao_social, nome_fantasia)")
+      .select("id, numero, status, total, total_devolvido, valor_pago, pago_em, pago_forma, pontos_ganhos, feito_em, entrega, origem, contato_nome, clientes(razao_social, nome_fantasia, identificacao)")
       .not("status", "in", "(cancelado,recusado,aguardando_aprovacao)")
       .gte("feito_em", new Date(de + "T00:00:00").toISOString()).lte("feito_em", new Date(ate + "T23:59:59").toISOString())
       .order("numero", { ascending: false }).limit(1000);

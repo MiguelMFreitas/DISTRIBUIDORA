@@ -809,4 +809,12 @@ exception when insufficient_privilege then raise notice 'OK   vendedor não troc
 end $$;
 reset role;
 
+
+-- ---------- 35. identificação do cliente ----------
+reset role;
+update clientes set contato = 'Marcos' where id = '40000000-0000-0000-0000-000000000001';
+select pg_temp.ok((select identificacao = 'Marcos ' || codigo || ' (' || razao_social || ')' from clientes where id = '40000000-0000-0000-0000-000000000001'), 'identificação: contato + código + (razão social)');
+insert into clientes (razao_social, nome_fantasia, vendedor_id) values ('MERCADINHO NOVO LTDA', 'MERCADINHO NOVO', '00000000-0000-0000-0000-00000000000b') returning identificacao as idn, codigo as cdn \gset
+select pg_temp.ok(:'idn' = 'MERCADINHO NOVO ' || :'cdn' || ' (MERCADINHO NOVO LTDA)', 'sem contato: usa o nome fantasia, com o código novo');
+
 \warn '>>> TODOS OS TESTES PASSARAM'
