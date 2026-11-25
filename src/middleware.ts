@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { urlSupabase } from "@/lib/supabase/url";
 
-const PUBLICAS = ["/login", "/pedir", "/sb/", "/sw.js", "/manifest.webmanifest", "/offline"];
+const PUBLICAS = ["/login", "/pedir", "/privacidade", "/termos", "/sb/", "/sw.js", "/manifest.webmanifest", "/offline"];
 
 export async function middleware(req: NextRequest) {
   let res = NextResponse.next({ request: req });
@@ -26,7 +26,8 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   const caminho = req.nextUrl.pathname;
-  if (!user && !PUBLICAS.some((p) => caminho.startsWith(p)) && !caminho.startsWith("/api")) {
+  // "/" sem login mostra a página da empresa (com login, a própria página manda para o sistema)
+  if (!user && caminho !== "/" && !PUBLICAS.some((p) => caminho.startsWith(p)) && !caminho.startsWith("/api")) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

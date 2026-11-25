@@ -169,3 +169,8 @@ input[type="number"] { -moz-appearance: textfield; }
   .cartao { break-inside: avoid; }
   .casca { padding: 0 !important; }
 }
+
+/* textos da Política de privacidade e dos Termos */
+.texto-legal h2 { @apply pt-4 font-display text-2xl font-bold uppercase tracking-wide text-zinc-900 dark:text-zinc-100; }
+.texto-legal ul { @apply list-disc space-y-1 pl-6; }
+.texto-legal a { @apply font-semibold text-marca-600 underline underline-offset-2; }

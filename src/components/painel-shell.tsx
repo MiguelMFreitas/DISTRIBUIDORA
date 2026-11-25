@@ -60,6 +60,7 @@ const MENU: Item[] = [
   { href: "/ranking", nome: "Ranking", icone: "🏆", area: "gestao", admin: true },
   { href: "/usuarios", nome: "Usuários", icone: "👥", area: "sistema", admin: true },
   { href: "/aparencia", nome: "Aparência", icone: "🎨", area: "sistema", admin: true },
+  { href: "/empresa", nome: "Dados da empresa", curto: "Empresa", icone: "🏢", area: "sistema", admin: true },
   { href: "/vender", nome: "App do vendedor", curto: "App", icone: "📱", area: "sistema", perm: "pedidos_criar" },
 ];
 
