@@ -81,7 +81,7 @@ export default function Painel() {
       // todos os descontos de hoje (avisa quando chega um novo)
       const { data: ds } = await sb.from("pedido_itens")
         .select("id, pedido_id, quantidade, preco_tabela, preco_unit, desconto_pct, precisa_aprovacao, produtos(nome, preco_minimo), pedidos!inner(numero, feito_em, status, clientes(razao_social), perfis!pedidos_vendedor_id_fkey(nome))")
-        .gt("desconto_pct", 0).gte("pedidos.feito_em", inicio).not("pedidos.status", "in", "(cancelado,recusado)");
+        .gt("desconto_pct", 0).lt("desconto_pct", 100).gte("pedidos.feito_em", inicio).not("pedidos.status", "in", "(cancelado,recusado)");
       const lista = ((ds ?? []) as unknown as Desconto[]).sort((a, b) => b.pedidos.feito_em.localeCompare(a.pedidos.feito_em) || a.pedidos.numero - b.pedidos.numero);
       if (vistos.current) {
         const novos = lista.filter((d) => !vistos.current!.has(d.id));

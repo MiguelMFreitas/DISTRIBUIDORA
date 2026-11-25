@@ -711,4 +711,102 @@ select pg_temp.ok((select count(*) from produtos where codigo is null) = 0 and (
 insert into clientes (razao_social, vendedor_id) values ('TESTE CLIENTE COD', '00000000-0000-0000-0000-00000000000b') returning codigo as cl \gset
 select pg_temp.ok(:'cl' ~ '^[0-9]+$', 'cliente novo recebe número');
 
+
+-- ---------- 34. clube de pontos ----------
+reset role;
+update produtos set estoque = 200 where id in ('30000000-0000-0000-0000-000000000001', '30000000-0000-0000-0000-000000000002');
+update perfis set permissoes = '{pedidos_criar}' where id = '00000000-0000-0000-0000-00000000000b';
+delete from configuracoes where chave = 'clube';
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+-- WhatsApp do cliente fica só com números e com 55
+update clientes set whatsapp = '(85) 99999-1111' where id = '40000000-0000-0000-0000-000000000001';
+select pg_temp.ok((select whatsapp from clientes where id = '40000000-0000-0000-0000-000000000001') = '5585999991111', 'WhatsApp do cliente guardado como 5585999991111');
+-- desafio: 2 fardos de refri no período = +50
+insert into desafios (titulo, inicio, fim, produtos, meta, bonus)
+values ('Refri em dobro', current_date - 1, current_date + 10, '{30000000-0000-0000-0000-000000000002}', 2, 50) returning id as des \gset
+-- pedido do robô: 3 refri a R$ 40 = 120
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":3}]') ->> 'id' as pa \gset
+reset role; update pedidos set origem = 'whatsapp' where id = :'pa'; set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+-- voltou 1 refri
+select devolver_item((select id from pedido_itens where pedido_id = :'pa'), 1);
+select pg_temp.ok((select total_devolvido from pedidos where id = :'pa') = 40, 'item que voltou: R$ 40 a menos no pedido');
+select marcar_pago(:'pa', 'pix') ->> 'pontos' as pts \gset
+select pg_temp.ok(:pts = 80, 'pagou R$ 80 (120 − 40 que voltou) = 80 pontos');
+select pg_temp.ok((select vence_em from pontos_movimentos where pedido_id = :'pa' and tipo = 'compra') = (current_date + interval '3 months')::date, 'pontos vencem em 3 meses');
+select pg_temp.ok((extrato_pontos('40000000-0000-0000-0000-000000000001') ->> 'saldo')::int = 130, 'desafio cumprido: +50 (saldo 130)');
+do $$ begin
+  perform marcar_pago((select id from pedidos where origem = 'whatsapp' limit 1), 'pix');
+  raise exception 'FALHOU: recebeu duas vezes';
+exception when others then if sqlerrm like 'FALHOU%' then raise; end if; raise notice 'OK   não recebe o mesmo pedido duas vezes';
+end $$;
+-- pedido que não é do robô não ganha pontos
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000002","quantidade":1}]') ->> 'id' as pn \gset
+select pg_temp.ok((marcar_pago(:'pn', 'dinheiro') ->> 'pontos')::int = 0, 'pedido feito fora do robô não ganha pontos');
+-- prêmio: 1 refri = 100 pontos
+insert into premios (produto_id, quantidade, pontos) values ('30000000-0000-0000-0000-000000000002', 1, 100) returning id as prm \gset
+select trocar_pontos('40000000-0000-0000-0000-000000000001', :'prm') as trc \gset
+select pg_temp.ok((extrato_pontos('40000000-0000-0000-0000-000000000001') ->> 'saldo')::int = 30, 'trocou 100 pontos (saldo 30)');
+do $$ begin
+  perform trocar_pontos('40000000-0000-0000-0000-000000000001', (select id from premios limit 1));
+  raise exception 'FALHOU: trocou sem pontos';
+exception when others then if sqlerrm like 'FALHOU%' then raise; end if; raise notice 'OK   não troca sem pontos suficientes (%)', sqlerrm;
+end $$;
+-- o próximo pedido leva o prêmio de graça
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000001","quantidade":1}]') ->> 'id' as pb \gset
+select pg_temp.ok((select count(*) from pedido_itens where pedido_id = :'pb' and troca_id = :'trc' and total = 0) = 1
+              and (select total from pedidos where id = :'pb') = 100, 'prêmio foi de graça no próximo pedido (total só da cerveja)');
+select pg_temp.ok((select status from trocas_pontos where id = :'trc') = 'no_pedido', 'troca ficou no pedido');
+select cancelar_pedido(:'pb');
+select pg_temp.ok((select status = 'pendente' and pedido_id is null from trocas_pontos where id = :'trc'), 'pedido cancelado: o prêmio espera o próximo pedido');
+select cancelar_troca(:'trc');
+select pg_temp.ok((extrato_pontos('40000000-0000-0000-0000-000000000001') ->> 'saldo')::int = 130, 'troca cancelada: pontos de volta (130)');
+-- vencimento: um lote antigo vence sozinho
+reset role;
+insert into pontos_movimentos (cliente_id, tipo, pontos, restante, vence_em, descricao)
+values ('40000000-0000-0000-0000-000000000001', 'ajuste', 20, 20, current_date - 1, 'lote velho');
+set role authenticated;
+select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select pg_temp.ok((extrato_pontos('40000000-0000-0000-0000-000000000001') ->> 'saldo')::int = 130, 'lote velho não entra no saldo');
+select pg_temp.ok(exists (select 1 from pontos_movimentos where tipo = 'vencimento' and pontos = -20), 'pontos com 3 meses vencem (só o lote velho)');
+-- voltou mais 1 refri depois de pago: tira 40 pontos
+select devolver_item((select id from pedido_itens where pedido_id = :'pa'), 1);
+select pg_temp.ok((select pontos_ganhos = 40 and valor_pago = 40 from pedidos where id = :'pa')
+              and (extrato_pontos('40000000-0000-0000-0000-000000000001') ->> 'saldo')::int = 90, 'devolução depois de pago tira os pontos (saldo 90)');
+select desfazer_pago(:'pa');
+select pg_temp.ok((extrato_pontos('40000000-0000-0000-0000-000000000001') ->> 'saldo')::int = 50 and (select pago_em is null from pedidos where id = :'pa'), 'recebimento desfeito: pontos saem');
+select marcar_pago(:'pa', 'dinheiro');
+-- níveis: meta de quantidade = 1 fardo, Prata com 1 meta
+insert into configuracoes (chave, valor) values ('clube', '{"quantidade_minima": 1, "metas_prata": 1, "metas_ouro": 4}')
+  on conflict (chave) do update set valor = excluded.valor;
+select calcular_niveis((current_date + interval '1 month')::date);
+select pg_temp.ok((select nivel from clube_niveis where cliente_id = '40000000-0000-0000-0000-000000000001' and mes = date_trunc('month', current_date + interval '1 month')::date) = 'prata', 'quem bateu 1 meta no mês vira Prata no mês seguinte');
+select pg_temp.ok((select nivel from clube_niveis where cliente_id = '40000000-0000-0000-0000-000000000003' and mes = date_trunc('month', current_date + interval '1 month')::date) = 'bronze', 'quem não comprou pelo robô fica Bronze');
+-- conferência: devolução escolhendo o cliente
+select criar_pedido(gen_random_uuid(), '40000000-0000-0000-0000-000000000001',
+  '[{"produto_id":"30000000-0000-0000-0000-000000000001","quantidade":2}]') ->> 'id' as pc \gset
+insert into cargas (turno) values ('tarde') returning id as cg \gset
+select definir_pedidos_carga(:'cg', array[:'pc'::uuid]);
+select saida_carga(:'cg');
+select finalizar_conferencia(:'cg', json_build_array(json_build_object('tipo', 'devolvido', 'pedido_item_id', (select id from pedido_itens where pedido_id = :'pc'), 'quantidade', 1))::jsonb);
+select pg_temp.ok((select total_devolvido from pedidos where id = :'pc') = 100 and (select status from pedidos where id = :'pc') = 'entregue'
+              and (select pedido_id from conferencia_itens where carga_id = :'cg') = :'pc', 'conferência: item devolvido fica no pedido do cliente');
+-- vendedor não recebe nem troca
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  perform marcar_pago(gen_random_uuid(), 'pix');
+  raise exception 'FALHOU: vendedor recebeu';
+exception when insufficient_privilege then raise notice 'OK   vendedor não marca pedido como pago';
+end $$;
+do $$ begin
+  perform trocar_pontos('40000000-0000-0000-0000-000000000001', gen_random_uuid());
+  raise exception 'FALHOU: vendedor trocou pontos';
+exception when insufficient_privilege then raise notice 'OK   vendedor não troca pontos';
+end $$;
+reset role;
+
 \warn '>>> TODOS OS TESTES PASSARAM'

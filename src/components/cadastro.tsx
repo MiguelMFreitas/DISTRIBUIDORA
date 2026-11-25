@@ -11,7 +11,7 @@ type Linha = Record<string, any>;
 export type Campo = {
   nome: string;
   rotulo: string;
-  tipo?: "texto" | "numero" | "moeda" | "bool" | "select" | "area" | "multi";
+  tipo?: "texto" | "numero" | "moeda" | "bool" | "select" | "area" | "multi" | "lista";
   opcoes?: { valor: string; nome: string }[];
   ref?: { tabela: string; rotulo: string; ordem?: string };
   obrigatorio?: boolean;
@@ -121,6 +121,8 @@ export function Cadastro({ tabela, singular, campos, colunas, buscaEm, ordem, po
       if (c.tipo === "numero" || c.tipo === "moeda") v = v === "" || v == null ? (c.obrigatorio ? 0 : null) : Number(String(v).replace(",", "."));
       else if (c.tipo === "bool") v = !!v;
       else if (c.tipo === "multi") v = Array.isArray(v) ? v : [];
+      // lista: o usuário digita separando com vírgula; grava como lista
+      else if (c.tipo === "lista") v = (Array.isArray(v) ? v : String(v ?? "").split(",")).map((x: string) => x.trim().toLocaleLowerCase("pt-BR")).filter(Boolean);
       else if (typeof v === "string") { v = v.trim(); if (c.maiusculo) v = v.toLocaleUpperCase("pt-BR"); if (v === "") v = null; }
       dados[c.nome] = v;
     }
@@ -251,7 +253,7 @@ export function Cadastro({ tabela, singular, campos, colunas, buscaEm, ordem, po
                         type={c.tipo === "numero" || c.tipo === "moeda" ? "number" : "text"}
                         step={c.tipo === "moeda" ? 0.01 : c.passo ?? "any"}
                         inputMode={c.tipo === "numero" || c.tipo === "moeda" ? "decimal" : undefined}
-                        value={editando[c.nome] ?? ""}
+                        value={Array.isArray(editando[c.nome]) ? editando[c.nome].join(", ") : editando[c.nome] ?? ""}
                         onChange={(e) => setEditando({ ...editando, [c.nome]: e.target.value })}
                       />
                     )}

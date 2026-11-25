@@ -9,6 +9,9 @@ export type Ped = Contato & {
   pedido_itens: { id: string; quantidade: number; preco_unit: number; desconto_pct: number; total: number; produtos: { nome: string; codigo: string | null; unidade: string; categorias: { ordem: number } | null } }[];
 };
 
+/** prêmio do clube de pontos: vai de graça (100% de desconto) */
+export const ehPremio = (i: { desconto_pct: number; total: number }) => Number(i.desconto_pct) >= 100 && Number(i.total) === 0;
+
 export const SELECT_PEDIDO_IMPRESSAO = "id, numero, total, peso_kg, observacao, feito_em, status, " + CAMPOS_CONTATO + ", clientes(razao_social, nome_fantasia, cpf_cnpj, endereco, numero, bairro, cidade, referencia, telefone, rotas(nome)), perfis!pedidos_vendedor_id_fkey(nome), cargas(numero:numero_dia, nome, motoristas(nome)), pedido_itens(id, quantidade, preco_unit, desconto_pct, total, produtos(nome, codigo, unidade, categorias(ordem)))";
 
 
@@ -35,10 +38,10 @@ export function Cupom({ p: original, empresa }: { p: Ped; empresa: string }) {
       {p.pedido_itens.map((i) => (
         <div key={i.id} className="c-it">
           <span className="c-q">{fmtQtd(i.quantidade)} {i.produtos.unidade}</span>
-          <span className="c-n">{i.produtos.nome}</span>
+          <span className="c-n">{ehPremio(i) && "PRÊMIO: "}{i.produtos.nome}</span>
           <span className="c-v">
-            <span>{fmtMoeda(i.preco_unit)}{i.desconto_pct > 0 ? ` (-${Number(i.desconto_pct).toLocaleString("pt-BR")}%)` : ""}</span>
-            <b>{fmtMoeda(i.total)}</b>
+            {ehPremio(i) ? <span>Clube de pontos</span> : <span>{fmtMoeda(i.preco_unit)}{i.desconto_pct > 0 ? ` (-${Number(i.desconto_pct).toLocaleString("pt-BR")}%)` : ""}</span>}
+            <b>{ehPremio(i) ? "GRÁTIS" : fmtMoeda(i.total)}</b>
           </span>
         </div>
       ))}

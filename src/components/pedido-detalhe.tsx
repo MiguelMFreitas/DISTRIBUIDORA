@@ -7,6 +7,7 @@ import { ENTREGAS, STATUS_PEDIDO, type StatusPedido, type TipoEntrega } from "@/
 import { Botao, BotaoConfirmar, Modal, Selo, avisar } from "./ui";
 import { usePerfil, usePode } from "./perfil-contexto";
 import { CampoPreco } from "./campo-preco";
+import { ehPremio } from "./cupom-pedido";
 import { CAMPOS_CONTATO, comContato, textoPagamento, type Contato } from "@/lib/contato";
 import { ConfirmarSenha } from "./confirmar-senha";
 
@@ -28,6 +29,7 @@ export function PedidoDetalhe({ id, aoFechar, aoMudar }: { id: string | null; ao
   const pode = usePode();
   const [p, setP] = useState<Det | null>(null);
   const [ocupado, setOcupado] = useState(false);
+  const [voltou, setVoltou] = useState<Record<string, number>>({}); // item -> quantidade que voltou
   const [editando, setEditando] = useState<{ id: string; qtd: string; preco: number } | null>(null);
   // ação que espera a senha do administrador (preço abaixo do mínimo do produto)
   const [comSenha, setComSenha] = useState<{ texto: string; fazer: () => void } | null>(null);
@@ -39,6 +41,8 @@ export function PedidoDetalhe({ id, aoFechar, aoMudar }: { id: string | null; ao
       .eq("id", id).single();
     if (error) avisar(erroMsg(error), "erro");
     const d = data as unknown as Det | null;
+    const dv = await sb.from("pedido_itens").select("id, devolvido").eq("pedido_id", id);
+    setVoltou(dv.error ? {} : Object.fromEntries(((dv.data ?? []) as { id: string; devolvido: number }[]).filter((x) => Number(x.devolvido) > 0).map((x) => [x.id, Number(x.devolvido)])));
     setP(d ? comContato(d) : null);
     // pedido pelo link: abrir já conta como "visto"
     if (d && d.origem === "link" && !d.visto_em && pode("pedidos_ver_todos")) {
@@ -175,7 +179,9 @@ export function PedidoDetalhe({ id, aoFechar, aoMudar }: { id: string | null; ao
                 return (
                   <tr key={i.id} className={`border-b border-zinc-100 align-top dark:border-zinc-800 ${pendente ? "bg-amber-50 dark:bg-amber-500/10" : ""}`}>
                     <td className="py-2 pl-1">
+                      {ehPremio(i) && <span className="mr-1 rounded bg-emerald-100 px-1.5 py-0.5 text-xs font-bold text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200">🎁 Prêmio</span>}
                       {i.produtos.nome}
+                      {(voltou[i.id] ?? 0) > 0 && <div className="text-xs font-bold text-red-600">voltaram {fmtQtd(voltou[i.id])} {i.produtos.unidade}</div>}
                       {pendente && <div className="text-xs font-bold text-amber-700 dark:text-amber-300">aguardando aprovação{i.motivo_aprovacao ? `: ${i.motivo_aprovacao}` : ""}</div>}
                       {abaixoCad(i) && <div className="text-xs font-bold text-red-600">abaixo do mínimo ({fmtMoeda(i.produtos.preco_minimo!)})</div>}
                     </td>
@@ -188,7 +194,7 @@ export function PedidoDetalhe({ id, aoFechar, aoMudar }: { id: string | null; ao
                         : fmtMoeda(i.preco_unit)}
                       {Number(i.preco_unit) < Number(i.preco_tabela) && <div className="text-xs text-zinc-400 line-through">{fmtMoeda(i.preco_tabela)}</div>}
                     </td>
-                    <td className={`py-2 text-right ${pendente ? "font-bold text-amber-600" : ""}`}>{i.desconto_pct > 0 ? `${Number(i.desconto_pct).toLocaleString("pt-BR")}%` : "—"}</td>
+                    <td className={`py-2 text-right ${pendente ? "font-bold text-amber-600" : ""}`}>{ehPremio(i) ? "grátis" : i.desconto_pct > 0 ? `${Number(i.desconto_pct).toLocaleString("pt-BR")}%` : "—"}</td>
                     <td className="py-2 text-right font-semibold">{fmtMoeda(i.total)}</td>
                     {p.status === "aguardando_aprovacao" && eu.admin && (
                       <td className="py-1.5 pl-2 text-right whitespace-nowrap">

@@ -47,6 +47,8 @@ export type Produto = {
   permite_meia: boolean;
   preco: number;
   preco_minimo: number | null;
+  litros?: number | null;
+  apelidos?: string[];
   custo: number;
   peso_kg: number;
   estoque: number;
@@ -67,6 +69,7 @@ export type Cliente = {
   bairro: string | null;
   cidade: string | null;
   telefone: string | null;
+  whatsapp?: string | null;
   rota_id: string | null;
   vendedor_id: string | null;
   ordem_visita?: number | null;

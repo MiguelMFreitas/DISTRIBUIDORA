@@ -18,6 +18,8 @@ const CAMPOS: Campo[] = [
   { nome: "preco_minimo", rotulo: "Preço mínimo (R$)", tipo: "moeda", largura: 2, ajuda: "Abaixo disso: vendedor precisa de aprovação, administrador põe a senha" },
   { nome: "custo", rotulo: "Custo (R$)", tipo: "moeda", largura: 2, ajuda: "Atualiza sozinho a cada entrada" },
   { nome: "peso_kg", rotulo: "Peso (kg) por unidade", tipo: "numero", largura: 2, ajuda: "Peso de 1 caixa/fardo/litro" },
+  { nome: "litros", rotulo: "Litros no fardo/caixa", tipo: "numero", largura: 2, ajuda: "Ex.: 2L com 6 = 12. Usado na meta de volume do clube" },
+  { nome: "apelidos", rotulo: "Apelidos (para o robô do WhatsApp)", tipo: "lista", largura: 6, ajuda: "Separe com vírgula. Ex.: coca de 2, coca grande, coquinha" },
   { nome: "estoque_minimo", rotulo: "Estoque mínimo", tipo: "numero", largura: 2, ajuda: "Avisa quando ficar abaixo" },
   { nome: "vasilhame_id", rotulo: "Vasilhame que deve voltar", ref: { tabela: "vasilhames", rotulo: "nome" }, largura: 3, ajuda: "Só para retornáveis" },
   { nome: "vasilhames_por_unidade", rotulo: "Cascos por unidade vendida", tipo: "numero", padrao: 1, largura: 3 },

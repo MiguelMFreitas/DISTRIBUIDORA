@@ -18,6 +18,7 @@ const CAMPOS: Campo[] = [
   { nome: "referencia", rotulo: "Ponto de referência", largura: 3 },
   { nome: "telefone", rotulo: "Telefone", largura: 3 },
   { nome: "telefone2", rotulo: "Telefone 2", largura: 3 },
+  { nome: "whatsapp", rotulo: "WhatsApp (robô e clube de pontos)", largura: 3, ajuda: "DDD + número. É por ele que o robô reconhece o cliente" },
   { nome: "vendedor_id", rotulo: "Vendedor (dono do cliente)", ref: { tabela: "perfis", rotulo: "nome" }, largura: 3, obrigatorio: true, ajuda: "Só este vendedor pode fazer pedido para o cliente" },
   { nome: "observacao", rotulo: "Observação", tipo: "area" },
   { nome: "ativo", rotulo: "Ativo", tipo: "bool", padrao: true },
